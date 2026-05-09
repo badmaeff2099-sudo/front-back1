@@ -42,12 +42,16 @@ function getDayColor(dateStr, completedDates) {
 
 function getLast30Days() {
   const days = [];
-  for (let i = DAYS_TO_SHOW - 1; i >= 0; i--) {
+
+  for (let i = 0; i < DAYS_TO_SHOW; i++) {
     const d = new Date();
-    d.setDate(d.getDate() - i);
+
+    d.setDate(d.getDate() + i);
+
     days.push(d.toISOString().slice(0, 10));
   }
-  return days;
+
+  return days.reverse();
 }
 
 function App() {
@@ -304,7 +308,7 @@ function App() {
                               </div>
 
                               <div className="progress-bars">
-                                {days.map((dateStr) => {
+                                {[...days].reverse().map((dateStr) => {
                                   const color = getDayColor(dateStr, participant.completed_dates);
                                   const cellStyle = {
                                     width: 14,
