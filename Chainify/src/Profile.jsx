@@ -76,13 +76,25 @@ function Profile({ currentUser, onBack, onUpdateUser, profileUser }) {
         full_name: values.fullName || "",
       });
       if (res.success) {
-        const updatedData = { ...userData, ...values, ...res.user };
-        setUserData(updatedData);
-        localStorage.setItem("chainify-user-data", JSON.stringify(res.user));
-        onUpdateUser(res.user);
-        message.success("Профиль успешно обновлён!");
-        setIsEditing(false);
-      } else {
+  const updatedData = {
+    ...userData,
+    ...values,
+    ...res.user,
+  };
+
+  setUserData(updatedData);
+
+  localStorage.setItem(
+    "chainify-user-data",
+    JSON.stringify(updatedData)
+  );
+
+  onUpdateUser(updatedData);
+
+  message.success("Профиль успешно обновлён!");
+
+  setIsEditing(false);
+} else {
         message.error(res.error || "Ошибка при сохранении");
       }
     } catch {

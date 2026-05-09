@@ -76,10 +76,23 @@ function App() {
     try {
       const res = await getUsers(location);
       if (res.success) {
-        setParticipants(res.users);
-        const locs = [...new Set(res.users.map((u) => u.location).filter(Boolean))];
-        setLocations(locs);
-      }
+  setParticipants(res.users);
+
+  const locs = [
+    ...new Set(
+      res.users
+        .map((u) => u.location)
+        .filter(Boolean)
+    ),
+  ];
+
+  setLocations((prev) => {
+    const same =
+      JSON.stringify(prev) === JSON.stringify(locs);
+
+    return same ? prev : locs;
+  });
+}
     } catch {
       message.error("Не удалось загрузить участников");
     } finally {
@@ -87,15 +100,20 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      const loc = currentUser.location || "";
-      setSelectedLocation(loc);
-      loadParticipants(loc);
-      requestPermission();
-      checkAndNotify();
-    }
-  }, [isAuthenticated]);
+useEffect(() => {
+  if (!isAuthenticated || !currentUser) return;
+
+  const loc = currentUser.location || "";
+
+  setSelectedLocation(loc);
+
+  loadParticipants(loc);
+
+  requestPermission();
+
+  checkAndNotify();
+
+}, [isAuthenticated, currentUser]);
 
   const handleLogin = (userData) => {
     setCurrentUser(userData);
@@ -110,10 +128,20 @@ function App() {
     message.info("Вы вышли из системы");
   };
 
-  const handleUpdateUser = (updatedUser) => {
-    setCurrentUser(updatedUser);
-    localStorage.setItem("chainify-user-data", JSON.stringify(updatedUser));
-  };
+ const handleUpdateUser = (updatedUser) => {
+  setCurrentUser((prev) => ({
+    ...prev,
+    ...updatedUser,
+  }));
+
+  localStorage.setItem(
+    "chainify-user-data",
+    JSON.stringify({
+      ...currentUser,
+      ...updatedUser,
+    })
+  );
+};
 
   const handleLocationChange = (loc) => {
     setSelectedLocation(loc);
