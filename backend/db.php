@@ -1,20 +1,27 @@
 <?php
 
-$host = "localhost";
-$port = "5432";
-$dbname = "chainify";
-$user = "postgres";
-$password = "root";
+function getPDO()
+{
+    $host = "localhost";
+    $port = "5432";
+    $dbname = "chainify";
+    $user = "postgres";
+    $password = "root";
 
-try {
-    $pdo = new PDO(
-        "pgsql:host=$host;port=$port;dbname=$dbname",
-        $user,
-        $password
-    );
+    try {
 
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        $pdo = new PDO(
+            "pgsql:host=$host;port=$port;dbname=$dbname",
+            $user,
+            $password
+        );
 
-} catch (PDOException $e) {
-    die("Ошибка подключения к БД: " . $e->getMessage());
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        return $pdo;
+
+    } catch (PDOException $e) {
+
+        die("Ошибка подключения к БД: " . $e->getMessage());
+    }
 }

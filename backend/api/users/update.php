@@ -11,15 +11,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../../db.php';
 
+$pdo = getPDO();
+
 $data = json_decode(file_get_contents("php://input"), true);
 
 $user_id = $data['user_id'] ?? null;
 
 if (!$user_id) {
+
     echo json_encode([
         "success" => false,
         "error" => "user_id required"
     ]);
+
     exit;
 }
 
@@ -27,12 +31,18 @@ try {
 
     $stmt = $pdo->prepare("
         UPDATE users
-        SET 
-            name = COALESCE(:username, name),
+        SET
+            username = COALESCE(:username, username),
             location = COALESCE(:location, location),
             goal = COALESCE(:goal, goal)
+
         WHERE id = :user_id
-        RETURNING id, name AS username, location, goal
+
+        RETURNING
+            id,
+            username,
+            location,
+            goal
     ");
 
     $stmt->execute([
@@ -50,6 +60,7 @@ try {
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {
+
     echo json_encode([
         "success" => false,
         "error" => $e->getMessage()

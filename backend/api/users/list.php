@@ -13,22 +13,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../../db.php';
 
+$pdo = getPDO();
+
 $location = $_GET['location'] ?? '';
 
 try {
 
     $sql = "
     SELECT
-    u.id,
-    u.name AS username,
-    u.location,
-    u.goal,
+        u.id,
+        u.username,
+        u.location,
+        u.goal,
+
         COALESCE(
             json_agg(p.day_date)
             FILTER (WHERE p.day_date IS NOT NULL),
             '[]'
         ) AS completed_dates
+
     FROM users u
+
     LEFT JOIN progress p
         ON p.user_id = u.id
     ";
@@ -45,10 +50,13 @@ try {
     $stmt = $pdo->prepare($sql);
 
     if ($location) {
+
         $stmt->execute([
             ':location' => $location
         ]);
+
     } else {
+
         $stmt->execute();
     }
 
@@ -57,6 +65,7 @@ try {
     foreach ($users as &$user) {
 
         if (is_string($user['completed_dates'])) {
+
             $user['completed_dates'] =
                 json_decode($user['completed_dates'], true);
         }

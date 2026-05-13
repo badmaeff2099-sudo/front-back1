@@ -2,16 +2,16 @@
 
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-
-header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Content-Type: application/json");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
+    exit();
 }
 
 require_once '../../db.php';
+
+$pdo = getPDO();
 
 $data = json_decode(file_get_contents("php://input"), true);
 
@@ -22,7 +22,7 @@ if (!$email || !$password) {
 
     echo json_encode([
         "success" => false,
-        "error" => "Введите email и пароль"
+        "error" => "Email и пароль обязательны"
     ], JSON_UNESCAPED_UNICODE);
 
     exit;
@@ -31,9 +31,16 @@ if (!$email || !$password) {
 try {
 
     $stmt = $pdo->prepare("
-        SELECT *
+        SELECT
+            id,
+            username,
+            email,
+            password,
+            location,
+            goal
         FROM users
         WHERE email = :email
+        LIMIT 1
     ");
 
     $stmt->execute([
@@ -42,25 +49,31 @@ try {
 
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$user || !password_verify($password, $user['password'])) {
+    if (!$user) {
 
         echo json_encode([
             "success" => false,
-            "error" => "Неверный email или пароль"
+            "error" => "Пользователь не найден"
         ], JSON_UNESCAPED_UNICODE);
 
         exit;
     }
 
+    if (!password_verify($password, $user['password'])) {
+
+        echo json_encode([
+            "success" => false,
+            "error" => "Неверный пароль"
+        ], JSON_UNESCAPED_UNICODE);
+
+        exit;
+    }
+
+    unset($user['password']);
+
     echo json_encode([
         "success" => true,
-        "user" => [
-            "id" => $user['id'],
-            "username" => $user['name'],
-            "email" => $user['email'],
-            "location" => $user['location'],
-            "goal" => $user['goal']
-        ]
+        "user" => $user
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {

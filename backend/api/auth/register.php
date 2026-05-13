@@ -11,6 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../../db.php';
 
+$pdo = getPDO();
+
 $data = json_decode(file_get_contents("php://input"), true);
 
 $username = trim($data['username'] ?? '');
@@ -32,7 +34,8 @@ if (!$username || !$email || !$password) {
 try {
 
     $check = $pdo->prepare("
-        SELECT id FROM users
+        SELECT id
+        FROM users
         WHERE email = :email
     ");
 
@@ -54,12 +57,13 @@ try {
 
     $stmt = $pdo->prepare("
         INSERT INTO users (
-            name,
+            username,
             email,
             password,
             location,
             goal
         )
+
         VALUES (
             :username,
             :email,
@@ -67,9 +71,10 @@ try {
             :location,
             :goal
         )
+
         RETURNING
             id,
-            name AS username,
+            username,
             email,
             location,
             goal
