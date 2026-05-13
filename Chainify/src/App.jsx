@@ -115,10 +115,17 @@ useEffect(() => {
 
 }, [isAuthenticated, currentUser]);
 
-  const handleLogin = (userData) => {
-    setCurrentUser(userData);
-    setIsAuthenticated(true);
-  };
+ const handleLogin = (userData) => {
+
+  localStorage.setItem(
+    "chainify-user-data",
+    JSON.stringify(userData)
+  );
+
+  setCurrentUser(userData);
+
+  setIsAuthenticated(true);
+};
 
   const handleLogout = () => {
     localStorage.removeItem("chainify-user-data");
