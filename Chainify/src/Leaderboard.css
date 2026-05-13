@@ -1,0 +1,38 @@
+.current-user-row {
+  background: rgba(82, 196, 26, 0.08) !important;
+}
+
+.ant-table-tbody > tr:hover > td {
+  background: rgba(123, 97, 255, 0.05) !important;
+  transition: 0.2s;
+}
+
+.leaderboard-page {
+  padding: 24px;
+}
+
+.leaderboard-card {
+  border-radius: 20px !important;
+  overflow: hidden;
+}
+
+.leaderboard-title {
+  margin-bottom: 0 !important;
+}
+
+.leaderboard-subtitle {
+  font-size: 15px;
+}
+
+.leaderboard-avatar {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.leaderboard-stat-card {
+  border-radius: 16px !important;
+  transition: 0.2s;
+}
+
+.leaderboard-stat-card:hover {
+  transform: translateY(-2px);
+}
