@@ -24,6 +24,7 @@ import {
 
 import { getLeaderboard } from "./api";
 import "./Leaderboard.css";
+import { getRank } from "./utils/ranks";
 
 const { Title, Text } = Typography;
 
@@ -82,10 +83,14 @@ function Leaderboard({ currentUser, onBack }) {
 
     {
       title: "Участник",
-      dataIndex: "username",
-      key: "username",
+  dataIndex: "username",
+  key: "username",
 
-      render: (_, user) => (
+  render: (_, user) => {
+
+    const rank = getRank(user.total_days);
+
+    return (
         <Space size="middle">
           <Avatar
             size={48}
@@ -109,7 +114,11 @@ function Leaderboard({ currentUser, onBack }) {
             </Text>
 
             <br />
-
+<div style={{ marginTop: 4, marginBottom: 4 }}>
+  <Tag color={rank.color}>
+    {rank.icon} {rank.title}
+  </Tag>
+</div>
             {user.goal ? (
               <Text type="secondary">
                 {user.goal}
@@ -120,9 +129,10 @@ function Leaderboard({ currentUser, onBack }) {
               </Text>
             )}
           </div>
-        </Space>
-      ),
-    },
+            </Space>
+    );
+  },
+},
 
     {
       title: "Прогресс",
