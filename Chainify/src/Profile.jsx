@@ -69,37 +69,34 @@ function Profile({ currentUser, onBack, onUpdateUser, profileUser }) {
   const handleSave = async (values) => {
     try {
       const res = await updateProfile(currentUserId, {
-        bio: values.bio || "",
-        goal: values.goal || "",
-        daily_actions: values.daily_actions || "",
-        location: values.location || "",
-        full_name: values.fullName || "",
-      });
+  username: values.username || "",
+  goal: values.goal || "",
+  location: values.location || "",
+});
       if (res.success) {
-  const updatedData = {
-    ...userData,
-    ...values,
-    ...res.user,
-  };
+const updatedUser = {
+  ...userData,
+  ...values,
+  ...res.user
+};
 
-  setUserData(updatedData);
+setUserData(updatedUser);
+onUpdateUser(updatedUser);
 
-  localStorage.setItem(
-    "chainify-user-data",
-    JSON.stringify(updatedData)
-  );
-
-  onUpdateUser(updatedData);
+localStorage.setItem(
+  "chainify-user-data",
+  JSON.stringify(updatedUser)
+);
 
   message.success("Профиль успешно обновлён!");
-
   setIsEditing(false);
 } else {
         message.error(res.error || "Ошибка при сохранении");
       }
-    } catch {
-      message.error("Ошибка соединения");
-    }
+    } catch (e) {
+  console.log(e);
+  message.error("Ошибка соединения");
+}
   };
 
   const handleCancel = () => {

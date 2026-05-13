@@ -28,16 +28,16 @@ try {
     $stmt = $pdo->prepare("
         UPDATE users
         SET 
-            name = COALESCE(:name, name),
+            name = COALESCE(:username, name),
             location = COALESCE(:location, location),
             goal = COALESCE(:goal, goal)
         WHERE id = :user_id
-        RETURNING id, name, location, goal
+        RETURNING id, name AS username, location, goal
     ");
 
     $stmt->execute([
         ':user_id' => $user_id,
-        ':name' => $data['username'] ?? null,
+        ':username' => $data['username'] ?? null,
         ':location' => $data['location'] ?? null,
         ':goal' => $data['goal'] ?? null
     ]);
