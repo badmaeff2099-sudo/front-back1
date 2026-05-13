@@ -3,32 +3,34 @@
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
-header("Content-Type: application/json");
+header("Content-Type: application/json; charset=UTF-8");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    exit();
+    http_response_code(200);
+    exit;
 }
 
 require_once '../../db.php';
 
 $pdo = getPDO();
 
-$data = json_decode(file_get_contents("php://input"), true);
-
-$user_id = $data['user_id'] ?? null;
-$day_date = $data['day_date'] ?? null;
-
-if (!$user_id || !$day_date) {
-
-    echo json_encode([
-        "success" => false,
-        "error" => "user_id and day_date required"
-    ]);
-
-    exit;
-}
-
 try {
+
+    $data = json_decode(file_get_contents("php://input"), true);
+
+    $user_id = $data['user_id'] ?? null;
+    $day_date = $data['day_date'] ?? null;
+    $status = $data['status'] ?? 'done';
+
+    if (!$user_id || !$day_date) {
+
+        echo json_encode([
+            "success" => false,
+            "message" => "user_id and day_date required"
+        ], JSON_UNESCAPED_UNICODE);
+
+        exit;
+    }
 
     $check = $pdo->prepare("
         SELECT id
@@ -47,7 +49,7 @@ try {
         echo json_encode([
             "success" => false,
             "error" => "Already marked for this date"
-        ]);
+        ], JSON_UNESCAPED_UNICODE);
 
         exit;
     }
@@ -56,31 +58,29 @@ try {
         INSERT INTO progress (
             user_id,
             day_date,
-            completed,
             status
         )
-
         VALUES (
             :user_id,
             :day_date,
-            true,
-            'done'
+            :status
         )
     ");
 
     $stmt->execute([
         ':user_id' => $user_id,
-        ':day_date' => $day_date
+        ':day_date' => $day_date,
+        ':status' => $status
     ]);
 
     echo json_encode([
         "success" => true
-    ]);
+    ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {
 
     echo json_encode([
         "success" => false,
-        "error" => $e->getMessage()
-    ]);
+        "message" => $e->getMessage()
+    ], JSON_UNESCAPED_UNICODE);
 }

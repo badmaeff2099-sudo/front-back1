@@ -42,10 +42,8 @@ function Profile({ currentUser, onBack, onUpdateUser, profileUser }) {
   const [isEditing, setIsEditing] = useState(false);
   const [form] = Form.useForm();
   const [userData, setUserData] = useState(() => {
-    const base = typeof currentUser === "object" ? currentUser : {};
-    const saved = localStorage.getItem(`chainify-user-${base.username || currentUser}`);
-    return saved ? { ...base, ...JSON.parse(saved) } : base;
-  });
+  return typeof currentUser === "object" ? currentUser : {};
+});
   const [stats, setStats] = useState({ totalDays: 0, streak: 0 });
   const [reactions, setReactions] = useState([]);
 
