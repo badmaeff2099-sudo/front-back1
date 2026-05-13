@@ -10,6 +10,7 @@ import {
   Row,
   Col,
   Statistic,
+  Button,
 } from "antd";
 
 import {
@@ -18,6 +19,7 @@ import {
   UserOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  ArrowLeftOutlined,
 } from "@ant-design/icons";
 
 import { getLeaderboard } from "./api";
@@ -211,11 +213,20 @@ function Leaderboard({ currentUser, onBack }) {
   ];
 
   return (
-    <div
-      style={{
-        padding: 24,
-      }}
-    >
+  <div
+    style={{
+      padding: 24,
+    }}
+  >
+
+    <div style={{ marginBottom: 20 }}>
+      <Button
+        icon={<ArrowLeftOutlined />}
+        onClick={onBack}
+      >
+        Назад
+      </Button>
+    </div>
       <Space
         direction="vertical"
         size="large"

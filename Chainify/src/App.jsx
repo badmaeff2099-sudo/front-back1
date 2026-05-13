@@ -41,19 +41,7 @@ function getDayColor(dateStr, completedDates) {
   return "missed";
 }
 
-function getLast30Days() {
-  const days = [];
 
-  for (let i = 0; i < DAYS_TO_SHOW; i++) {
-    const d = new Date();
-
-    d.setDate(d.getDate() + i);
-
-    days.push(d.toISOString().slice(0, 10));
-  }
-
-  return days.reverse();
-}
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -71,7 +59,7 @@ function App() {
   const [locations, setLocations] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const days = getLast30Days();
+ 
 
   const loadParticipants = async (location) => {
     setLoading(true);
@@ -362,29 +350,58 @@ useEffect(() => {
                                 </Space>
                               </div>
 
-                              <div className="progress-bars">
-                                {[...days].reverse().map((dateStr) => {
-                                  const color = getDayColor(dateStr, participant.completed_dates);
-                                  const cellStyle = {
-                                    width: 14,
-                                    height: 14,
-                                    borderRadius: 3,
-                                    marginBottom: 3,
-                                    backgroundColor:
-                                      color === "done"
-                                        ? "#1DB954"
-                                        : color === "missed"
-                                        ? "#ff4d4f"
-                                        : "#e8e8e8",
-                                    border: dateStr === today ? "2px solid #faad14" : "none",
-                                  };
-                                  return (
-                                    <Tooltip key={dateStr} title={dateStr}>
-                                      <div style={cellStyle} />
-                                    </Tooltip>
-                                  );
-                                })}
-                              </div>
+                              <div
+  className="progress-bars"
+  style={{
+    display: "flex",
+    flexDirection: "column-reverse",
+  }}
+>
+  {[...Array(DAYS_TO_SHOW)].map((_, index) => {
+
+    const totalCompleted = participant.completed_dates.length;
+
+    const cyclePosition =
+      totalCompleted % DAYS_TO_SHOW === 0 && totalCompleted > 0
+        ? DAYS_TO_SHOW
+        : totalCompleted % DAYS_TO_SHOW;
+
+    let color = "#e8e8e8";
+
+    if (index < cyclePosition) {
+      color = "#1DB954";
+    }
+
+    const currentCell = index === cyclePosition - 1;
+
+    const cellDate = new Date();
+
+    cellDate.setDate(
+      cellDate.getDate() - (cyclePosition - 1 - index)
+    );
+
+    return (
+      <Tooltip
+        key={index}
+        title={cellDate.toISOString().slice(0, 10)}
+      >
+        <div
+          style={{
+            width: 14,
+            height: 14,
+            borderRadius: 3,
+            marginBottom: 3,
+            backgroundColor: color,
+            border: currentCell
+              ? "2px solid #faad14"
+              : "none",
+            transition: "all 0.2s ease",
+          }}
+        />
+      </Tooltip>
+    );
+  })}
+</div>
                             </Space>
                           </div>
                         );
