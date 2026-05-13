@@ -12,6 +12,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../../db.php';
 
+$pdo = getPDO();
+
 $data = json_decode(file_get_contents("php://input"), true);
 
 $user_id = $data['user_id'] ?? null;
@@ -31,8 +33,24 @@ if (!$user_id || !$title) {
 try {
 
     $stmt = $pdo->prepare("
-        INSERT INTO habits (user_id, title, total_days)
-        VALUES (:user_id, :title, :total_days)
+        INSERT INTO habits (
+            user_id,
+            title,
+            total_days
+        )
+
+        VALUES (
+            :user_id,
+            :title,
+            :total_days
+        )
+
+        RETURNING
+            id,
+            user_id,
+            title,
+            total_days,
+            created_at
     ");
 
     $stmt->execute([
@@ -41,9 +59,11 @@ try {
         ':total_days' => $total_days
     ]);
 
+    $habit = $stmt->fetch(PDO::FETCH_ASSOC);
+
     echo json_encode([
         "success" => true,
-        "message" => "Привычка создана"
+        "habit" => $habit
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {

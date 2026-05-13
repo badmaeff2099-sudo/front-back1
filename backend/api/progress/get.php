@@ -13,6 +13,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../../db.php';
 
+$pdo = getPDO();
+
 $user_id = $_GET['user_id'] ?? null;
 
 if (!$user_id) {
@@ -28,9 +30,14 @@ if (!$user_id) {
 try {
 
     $stmt = $pdo->prepare("
-        SELECT day_date, status
+        SELECT
+            day_date,
+            status
+
         FROM progress
+
         WHERE user_id = :user_id
+
         ORDER BY day_date ASC
     ");
 
@@ -47,7 +54,8 @@ try {
 
     echo json_encode([
         "success" => true,
-        "completed_dates" => $completed_dates
+        "completed_dates" => $completed_dates,
+        "total" => count($completed_dates)
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {
