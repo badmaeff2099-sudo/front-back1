@@ -23,6 +23,7 @@ import {
 import Auth from "./Auth";
 import Profile from "./Profile";
 import Chat from "./Chat";
+import Leaderboard from "./Leaderboard";
 import { getUsers, markDay } from "./api";
 import { requestPermission, checkAndNotify } from "./notifications";
 import "./styles.css";
@@ -63,6 +64,7 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
   const [showProfile, setShowProfile] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState("");
@@ -184,6 +186,23 @@ useEffect(() => {
     return <Auth onLogin={handleLogin} />;
   }
 
+  if (showLeaderboard) {
+  return (
+    <ConfigProvider
+      theme={{
+        token: {
+          colorPrimary: "#c8c4bfff",
+          borderRadius: 8,
+        },
+      }}
+    >
+      <Leaderboard
+        onBack={() => setShowLeaderboard(false)}
+      />
+    </ConfigProvider>
+  );
+}
+
   if (showProfile) {
     return (
       <ConfigProvider theme={{ token: { colorPrimary: "#c8c4bfff", borderRadius: 8 } }}>
@@ -225,12 +244,13 @@ useEffect(() => {
               />
             )}
             <Button
-              type="link"
-              icon={<TrophyOutlined />}
-              className="header-link"
-            >
-              Рейтинг
-            </Button>
+  type="link"
+  icon={<TrophyOutlined />}
+  className="header-link"
+  onClick={() => setShowLeaderboard(true)}
+>
+  Рейтинг
+</Button>
             <Button
               type="link"
               icon={<LogoutOutlined />}
