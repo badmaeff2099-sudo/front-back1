@@ -24,6 +24,7 @@ import Auth from "./Auth";
 import Profile from "./Profile";
 import Chat from "./Chat";
 import Leaderboard from "./Leaderboard";
+import { getRank } from "./utils/ranks";
 import { getUsers, markDay } from "./api";
 import { requestPermission, checkAndNotify } from "./notifications";
 import "./styles.css";
@@ -302,6 +303,7 @@ useEffect(() => {
                   <>
                     <div className="progress-grid">
                       {paginatedParticipants.map((participant, index) => {
+                        const rank = getRank(participant.completed_dates.length);
                         const globalIndex = (currentPage - 1) * PARTICIPANTS_PER_PAGE + index + 1;
                         const isCurrentUser = currentUser?.id === participant.id;
                         const today = new Date().toISOString().slice(0, 10);
@@ -313,8 +315,9 @@ useEffect(() => {
                               <div className="column-header">
                                 <Space direction="vertical" size={4} align="center">
                                   <Badge
-                                    count={globalIndex}
-                                    style={{
+  count={globalIndex}
+  title={`${rank.icon} ${rank.title}`}
+  style={{
                                       backgroundColor:
                                         participant.completed_dates.length > 0
                                           ? "#1DB954"
