@@ -33,7 +33,7 @@ import "./styles.css";
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 
-const PARTICIPANTS_PER_PAGE = 8;
+const PARTICIPANTS_PER_PAGE = 16;
 const DAYS_TO_SHOW = 30;
 
 function getDayColor(dateStr, completedDates) {
