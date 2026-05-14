@@ -26,6 +26,7 @@ import Chat from "./Chat";
 import Leaderboard from "./Leaderboard";
 import { getRank } from "./utils/ranks";
 import { getUsers, markDay } from "./api";
+import UserProfile from "./UserProfile";
 import { requestPermission, checkAndNotify } from "./notifications";
 import "./styles.css";
 
@@ -53,6 +54,7 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
   const [showProfile, setShowProfile] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -204,6 +206,24 @@ useEffect(() => {
     );
   }
 
+  if (selectedUser) {
+  return (
+    <ConfigProvider
+      theme={{
+        token: {
+          colorPrimary: "#c8c4bfff",
+          borderRadius: 8,
+        },
+      }}
+    >
+      <UserProfile
+        user={selectedUser}
+        onBack={() => setSelectedUser(null)}
+      />
+    </ConfigProvider>
+  );
+}
+
   const paginatedParticipants = participants.slice(
     (currentPage - 1) * PARTICIPANTS_PER_PAGE,
     currentPage * PARTICIPANTS_PER_PAGE
@@ -329,9 +349,16 @@ useEffect(() => {
                                       fontWeight: "bold",
                                     }}
                                   />
-                                  <Text strong style={{ fontSize: "14px", textTransform: "capitalize" }}>
-                                    {participant.username}
-                                  </Text>
+                                  <Text
+  strong
+  style={{
+    fontSize: "14px",
+    cursor: "pointer",
+  }}
+  onClick={() => setSelectedUser(participant)}
+>
+  {participant.username}
+</Text>
                                   {participant.goal && (
                                     <Tag color="default" style={{ marginTop: "4px", maxWidth: "100px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                       {participant.goal}
