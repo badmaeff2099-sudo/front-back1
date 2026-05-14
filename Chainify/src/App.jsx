@@ -235,41 +235,87 @@ useEffect(() => {
     <ConfigProvider theme={{ token: { colorPrimary: "#c8c4bfff", borderRadius: 8 } }}>
       <Layout className="app-layout">
         <Header className="app-header">
-          <Title level={2} className="header-title">
-            Chainify
-          </Title>
-          <Space>
-            {locations.length > 0 && (
-              <Select
-                value={selectedLocation || undefined}
-                placeholder="Все локации"
-                allowClear
-                style={{ minWidth: 140 }}
-                onChange={(val) => handleLocationChange(val || "")}
-                options={[
-                  ...locations.map((l) => ({ value: l, label: l })),
-                ]}
-                prefix={<EnvironmentOutlined />}
-              />
-            )}
-            <Button
-  type="link"
-  icon={<TrophyOutlined />}
-  className="header-link"
-  onClick={() => setShowLeaderboard(true)}
->
-  Рейтинг
-</Button>
-            <Button
-              type="link"
-              icon={<LogoutOutlined />}
-              className="header-link"
-              onClick={handleLogout}
-            >
-              Выйти
-            </Button>
-          </Space>
-        </Header>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      width: "100%",
+      gap: 20,
+    }}
+  >
+    {/* Левая часть */}
+    <Title
+      level={2}
+      className="header-title"
+      style={{
+        margin: 0,
+        minWidth: 160,
+      }}
+    >
+      Chainify
+    </Title>
+
+    {/* Центр */}
+    <div
+      style={{
+        flex: 1,
+        textAlign: "center",
+      }}
+    >
+      <Text
+        style={{
+          fontSize: "20px",
+          fontWeight: 700,
+          color: "#0f0d0d",
+          letterSpacing: "0.5px",
+        }}
+      >
+        Каждый день — новая Возможность!
+      </Text>
+    </div>
+
+    {/* Правая часть */}
+    <Space>
+      {locations.length > 0 && (
+        <Select
+          value={selectedLocation || undefined}
+          placeholder="Все локации"
+          allowClear
+          style={{ minWidth: 140 }}
+          onChange={(val) =>
+            handleLocationChange(val || "")
+          }
+          options={locations.map((l) => ({
+            value: l,
+            label: l,
+          }))}
+          prefix={<EnvironmentOutlined />}
+        />
+      )}
+
+      <Button
+        type="link"
+        icon={<TrophyOutlined />}
+        className="header-link"
+        onClick={() =>
+          setShowLeaderboard(true)
+        }
+      >
+        Рейтинг
+      </Button>
+
+      <Button
+        type="link"
+        icon={<LogoutOutlined />}
+        className="header-link"
+        onClick={handleLogout}
+      >
+        Выйти
+      </Button>
+    </Space>
+  </div>
+</Header>
 
         <Content className="app-content">
           <div className="main-content">
@@ -311,6 +357,7 @@ useEffect(() => {
                   )}
                 </Space>
               </Card>
+              
             </div>
 
             <div className="right-panel">
