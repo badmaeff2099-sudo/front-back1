@@ -359,31 +359,74 @@ useEffect(() => {
 >
   {[...Array(DAYS_TO_SHOW)].map((_, index) => {
 
-    const totalCompleted = participant.completed_dates.length;
+    const today = new Date()
+      .toLocaleDateString("sv-SE");
+
+    const completedDates =
+      participant.completed_dates || [];
+
+    const todayDone =
+      completedDates.includes(today);
+
+    const totalCompleted =
+      completedDates.length;
 
     const cyclePosition =
-      totalCompleted % DAYS_TO_SHOW === 0 && totalCompleted > 0
+      totalCompleted % DAYS_TO_SHOW === 0 &&
+      totalCompleted > 0
         ? DAYS_TO_SHOW
         : totalCompleted % DAYS_TO_SHOW;
 
+    /*
+      Текущий активный день:
+      - если сегодня НЕ отмечено:
+        рамка стоит на текущем сером
+      - если отмечено:
+        рамка остается на зеленом сегодняшнем
+    */
+
+    const currentIndex =
+      cyclePosition === 0
+        ? 0
+        : todayDone
+        ? cyclePosition - 1
+        : cyclePosition;
+
     let color = "#e8e8e8";
 
-    if (index < cyclePosition) {
+    // completed cells
+    if (
+      index < cyclePosition ||
+      (todayDone && index === cyclePosition - 1)
+    ) {
       color = "#1DB954";
     }
 
-    const currentCell = index === cyclePosition - 1;
+    const currentCell =
+      index === currentIndex;
+
+    /*
+      Правильная дата для tooltip
+    */
 
     const cellDate = new Date();
 
-    cellDate.setDate(
-      cellDate.getDate() - (cyclePosition - 1 - index)
-    );
+    if (todayDone) {
+      cellDate.setDate(
+        cellDate.getDate() -
+          (cyclePosition - 1 - index)
+      );
+    } else {
+      cellDate.setDate(
+        cellDate.getDate() -
+          (cyclePosition - index)
+      );
+    }
 
     return (
       <Tooltip
         key={index}
-        title={cellDate.toISOString().slice(0, 10)}
+        title={cellDate.toLocaleDateString("sv-SE")}
       >
         <div
           style={{
