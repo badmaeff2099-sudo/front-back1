@@ -21,7 +21,10 @@ import {
   FireOutlined,
 } from "@ant-design/icons";
 
-import { getRank } from "./utils/ranks";
+import {
+  getRank,
+  RANKS,
+} from "./utils/ranks";
 
 const { Title, Text } = Typography;
 
@@ -275,6 +278,51 @@ export default function UserProfile({
 
   const rank =
     getRank(completedDays);
+  /*
+  Следующий ранг
+*/
+
+const currentRankIndex =
+  RANKS.findIndex(
+    (r) =>
+      r.title === rank.title
+  );
+
+const nextRank =
+  RANKS[
+    currentRankIndex + 1
+  ] || RANKS[
+    currentRankIndex
+  ];
+
+const currentRankMin =
+  RANKS[
+    currentRankIndex
+  ]?.days || 0;
+
+const nextRankDays =
+  nextRank.days;
+
+const rankProgress =
+  nextRankDays === currentRankMin
+    ? 100
+    : (
+        (
+          completedDays -
+          currentRankMin
+        ) /
+        (
+          nextRankDays -
+          currentRankMin
+        )
+      ) * 100;
+
+const daysLeftToRank =
+  Math.max(
+    0,
+    nextRankDays -
+      completedDays
+  );
 
   return (
 
@@ -427,6 +475,115 @@ export default function UserProfile({
                 width: "100%",
               }}
             >
+              <Card
+  style={{
+    borderRadius: 20,
+    boxShadow:
+      "0 4px 20px rgba(0,0,0,0.06)",
+  }}
+>
+
+  <Space
+    direction="vertical"
+    style={{
+      width: "100%",
+    }}
+    size="middle"
+  >
+
+    <div
+      style={{
+        display: "flex",
+        justifyContent:
+          "space-between",
+        alignItems: "center",
+      }}
+    >
+
+      <div>
+
+        <Text
+          type="secondary"
+        >
+          Ранг
+        </Text>
+
+        <br />
+
+        <Text
+          strong
+          style={{
+            fontSize: 22,
+            color: rank.color,
+          }}
+        >
+          {rank.icon}
+          {" "}
+          {rank.title}
+        </Text>
+
+      </div>
+
+      <div
+        style={{
+          textAlign: "right",
+        }}
+      >
+
+        <Text
+          type="secondary"
+        >
+          Следующий ранг
+        </Text>
+
+        <br />
+
+        <Text strong>
+          {nextRank.icon}
+          {" "}
+          {nextRank.title}
+        </Text>
+
+      </div>
+
+    </div>
+
+    <Progress
+      percent={Math.round(
+        rankProgress
+      )}
+      strokeColor={
+        rank.color
+      }
+    />
+
+    <div
+      style={{
+        display: "flex",
+        justifyContent:
+          "space-between",
+      }}
+    >
+
+      <Text strong>
+        {completedDays}
+        {" "}
+        дней
+      </Text>
+
+      <Text type="secondary">
+        Осталось
+        {" "}
+        {daysLeftToRank}
+        {" "}
+        дней
+      </Text>
+
+    </div>
+
+  </Space>
+
+</Card>
 
               <Card
                 style={{
