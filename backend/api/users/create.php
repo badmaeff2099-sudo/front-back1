@@ -30,10 +30,25 @@ if (!$username) {
 try {
 
     $stmt = $pdo->prepare("
-        INSERT INTO users (name, location, goal)
-        VALUES (:username, :location, :goal)
-        RETURNING id, name AS username, location, goal
-    ");
+    INSERT INTO users (
+        name,
+        location,
+        goal,
+        created_at
+    )
+    VALUES (
+        :username,
+        :location,
+        :goal,
+        CURRENT_DATE
+    )
+    RETURNING
+        id,
+        name AS username,
+        location,
+        goal,
+        created_at
+");
 
     $stmt->execute([
         ':username' => $username,

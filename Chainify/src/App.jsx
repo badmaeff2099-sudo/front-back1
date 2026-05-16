@@ -436,91 +436,116 @@ useEffect(() => {
 >
   {[...Array(DAYS_TO_SHOW)].map((_, index) => {
 
-    const today = new Date()
-      .toLocaleDateString("sv-SE");
+  const completedDates =
+    participant.completed_dates || [];
 
-    const completedDates =
-      participant.completed_dates || [];
+  const today = new Date();
 
-    const todayDone =
-      completedDates.includes(today);
+  today.setHours(0, 0, 0, 0);
 
-    const totalCompleted =
-      completedDates.length;
+  /*
+    Дата регистрации
+  */
 
-    const cyclePosition =
-      totalCompleted % DAYS_TO_SHOW === 0 &&
-      totalCompleted > 0
-        ? DAYS_TO_SHOW
-        : totalCompleted % DAYS_TO_SHOW;
+  const createdAt = participant.created_at
+    ? new Date(participant.created_at)
+    : new Date();
 
-    /*
-      Текущий активный день:
-      - если сегодня НЕ отмечено:
-        рамка стоит на текущем сером
-      - если отмечено:
-        рамка остается на зеленом сегодняшнем
-    */
+  createdAt.setHours(0, 0, 0, 0);
 
-    const currentIndex =
-      cyclePosition === 0
-        ? 0
-        : todayDone
-        ? cyclePosition - 1
-        : cyclePosition;
+  /*
+    Сколько дней прошло
+    с регистрации
+  */
 
-    let color = "#e8e8e8";
+  const daysSinceRegistration =
+    Math.floor(
+      (today - createdAt) /
+      (1000 * 60 * 60 * 24)
+    ) + 1;
 
-    // completed cells
-    if (
-      index < cyclePosition ||
-      (todayDone && index === cyclePosition - 1)
-    ) {
+  /*
+    Текущая позиция цикла
+  */
+
+  const cycleDay =
+    daysSinceRegistration % DAYS_TO_SHOW;
+
+  /*
+    Нижняя клетка = день регистрации
+  */
+
+  const visualDay = index;
+
+  /*
+    Смещение внутри цикла
+  */
+
+  const offset =
+    cycleDay - visualDay;
+
+  const cellDate = new Date(today);
+
+  cellDate.setDate(
+    today.getDate() - offset
+  );
+
+  const dateStr =
+    cellDate.toLocaleDateString("sv-SE");
+
+  const isToday =
+    dateStr ===
+    today.toLocaleDateString("sv-SE");
+
+  const isCompleted =
+    completedDates.includes(dateStr);
+
+  /*
+    Показываем только активную часть цикла
+  */
+
+  const isVisible =
+    visualDay <= cycleDay;
+
+  let color = "#d1d5db";
+
+  if (isVisible) {
+
+    color = "#e8e8e8";
+
+    if (isCompleted) {
       color = "#1DB954";
     }
 
-    const currentCell =
-      index === currentIndex;
-
-    /*
-      Правильная дата для tooltip
-    */
-
-    const cellDate = new Date();
-
-    if (todayDone) {
-      cellDate.setDate(
-        cellDate.getDate() -
-          (cyclePosition - 1 - index)
-      );
-    } else {
-      cellDate.setDate(
-        cellDate.getDate() -
-          (cyclePosition - index)
-      );
+    else if (dateStr < today.toLocaleDateString("sv-SE")) {
+      color = "#ff4d4f";
     }
+  }
 
-    return (
-      <Tooltip
-        key={index}
-        title={cellDate.toLocaleDateString("sv-SE")}
-      >
-        <div
-          style={{
-            width: 14,
-            height: 14,
-            borderRadius: 3,
-            marginBottom: 3,
-            backgroundColor: color,
-            border: currentCell
-              ? "2px solid #faad14"
-              : "none",
-            transition: "all 0.2s ease",
-          }}
-        />
-      </Tooltip>
-    );
-  })}
+  return (
+    <Tooltip
+      key={index}
+      title={dateStr}
+    >
+      <div
+        style={{
+          width: 14,
+          height: 14,
+          borderRadius: 3,
+          marginBottom: 3,
+          backgroundColor: color,
+
+          border: isToday
+            ? "2px solid #faad14"
+            : "none",
+
+          transition:
+            "all 0.2s ease",
+        }}
+      />
+    </Tooltip>
+  );
+})}
 </div>
                             </Space>
                           </div>

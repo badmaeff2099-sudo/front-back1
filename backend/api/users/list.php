@@ -25,6 +25,7 @@ try {
         u.username,
         u.location,
         u.goal,
+        u.created_at,
 
         COALESCE(
             json_agg(p.day_date)
