@@ -281,6 +281,119 @@ export default function UserProfile({
   /*
   Следующий ранг
 */
+/*
+  Все ранги
+*/
+
+const ranks = [
+  {
+    title: "Пыль",
+    icon: "🪨",
+    days: 0,
+    color: "#8c8c8c",
+  },
+  {
+    title: "Росток",
+    icon: "🌱",
+    days: 11,
+    color: "#73d13d",
+  },
+  {
+    title: "Бревно",
+    icon: "🪵",
+    days: 23,
+    color: "#ff4d4f",
+  },
+  {
+    title: "Рабочий режим",
+    icon: "🛠",
+    days: 35,
+    color: "#1890ff",
+  },
+  {
+    title: "Стабильный",
+    icon: "🛡",
+    days: 51,
+    color: "#52c41a",
+  },
+  {
+    title: "Воин",
+    icon: "⚔️",
+    days: 69,
+    color: "#fa8c16",
+  },
+  {
+    title: "Дисциплина",
+    icon: "💎",
+    days: 87,
+    color: "#13c2c2",
+  },
+  {
+    title: "Фундамент",
+    icon: "🧱",
+    days: 100,
+    color: "#722ed1",
+  },
+  {
+    title: "Закаленный",
+    icon: "🔥",
+    days: 150,
+    color: "#fadb14",
+  },
+  {
+    title: "Монолит",
+    icon: "🗿",
+    days: 181,
+    color: "#fadb14",
+  },
+  {
+    title: "Железная воля",
+    icon: "🦍",
+    days: 200,
+    color: "#fadb14",
+  },
+  {
+    title: "Мастер",
+    icon: "👑",
+    days: 231,
+    color: "#fadb14",
+  },
+  {
+    title: "Наблюдатель",
+    icon: "👁",
+    days: 271,
+    color: "#fadb14",
+  },
+  {
+    title: "Гигант",
+    icon: "🗻",
+    days: 300,
+    color: "#fadb14",
+  },
+  {
+    title: "Легенда",
+    icon: "🏆",
+    days: 331,
+    color: "#fadb14",
+  },
+  {
+    title: "Абсолют",
+    icon: "✨",
+    days: 365,
+    color: "#fadb14",
+  },
+];
+
+/*
+  Прогресс ранга
+*/
+
+const maxRankDays = 365;
+
+const rankPercent = Math.min(
+  (completedDays / maxRankDays) * 100,
+  100
+);
 
 const currentRankIndex =
   RANKS.findIndex(
@@ -352,6 +465,195 @@ const daysLeftToRank =
           Назад
         </Button>
 
+<Card
+  style={{
+    marginBottom: 24,
+    borderRadius: 24,
+    boxShadow:
+      "0 4px 20px rgba(0,0,0,0.06)",
+  }}
+>
+
+  <Space
+    direction="vertical"
+    size="large"
+    style={{
+      width: "100%",
+    }}
+  >
+
+    <div>
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent:
+            "space-between",
+          alignItems: "center",
+          marginBottom: 10,
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+
+        <div>
+
+          <Title
+            level={3}
+            style={{
+              margin: 0,
+            }}
+          >
+            Ранг пользователя
+          </Title>
+
+          <Text type="secondary">
+            Продвижение от Пыли
+            до Абсолюта
+          </Text>
+
+        </div>
+
+        <Tag
+          color={rank.color}
+          style={{
+            fontSize: 16,
+            padding: "8px 16px",
+            borderRadius: 999,
+            fontWeight: 700,
+          }}
+        >
+          {rank.icon}
+          {" "}
+          {rank.title}
+        </Tag>
+
+      </div>
+
+      <Progress
+        percent={Math.round(
+          rankPercent
+        )}
+        strokeColor={rank.color}
+        showInfo={false}
+      />
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent:
+            "space-between",
+          marginTop: 8,
+        }}
+      >
+
+        <Text strong>
+          {completedDays}
+          {" / 365 дней"}
+        </Text>
+
+        <Text type="secondary">
+          {Math.round(rankPercent)}
+          %
+        </Text>
+
+      </div>
+
+    </div>
+
+    <div
+      style={{
+        overflowX: "auto",
+        paddingBottom: 6,
+      }}
+    >
+
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          minWidth: 1100,
+        }}
+      >
+
+        {ranks.map((item) => {
+
+          const unlocked =
+            completedDays >=
+            item.days;
+
+          return (
+
+            <div
+              key={item.title}
+              style={{
+                minWidth: 90,
+                textAlign: "center",
+                opacity:
+                  unlocked
+                    ? 1
+                    : 0.45,
+                transition:
+                  "all .2s ease",
+              }}
+            >
+
+              <div
+                style={{
+                  width: 54,
+                  height: 54,
+                  borderRadius: "50%",
+                  background:
+                    unlocked
+                      ? item.color
+                      : "#f0f0f0",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent:
+                    "center",
+                  margin:
+                    "0 auto 8px",
+                  fontSize: 24,
+                  border:
+                    rank.title ===
+                    item.title
+                      ? "3px solid #000"
+                      : "none",
+                }}
+              >
+                {item.icon}
+              </div>
+
+              <Text
+                strong
+                style={{
+                  display: "block",
+                  fontSize: 12,
+                }}
+              >
+                {item.title}
+              </Text>
+
+              <Text
+                type="secondary"
+                style={{
+                  fontSize: 11,
+                }}
+              >
+                {item.days} д.
+              </Text>
+
+            </div>
+          );
+        })}
+
+      </div>
+
+    </div>
+
+  </Space>
+
+</Card>
         <Row gutter={[24, 24]}>
 
           <Col xs={24} lg={8}>
