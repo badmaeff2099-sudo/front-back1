@@ -15,15 +15,14 @@ $pdo = getPDO();
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-$email = trim($data['email'] ?? '');
-$password = trim($data['password'] ?? '');
+$user_id = $data['user_id'] ?? null;
 
-if (!$email || !$password) {
+if (!$user_id) {
 
     echo json_encode([
         "success" => false,
-        "error" => "Email и пароль обязательны"
-    ], JSON_UNESCAPED_UNICODE);
+        "error" => "user_id required"
+    ]);
 
     exit;
 }
@@ -31,45 +30,29 @@ if (!$email || !$password) {
 try {
 
     $stmt = $pdo->prepare("
-        SELECT
+        UPDATE users
+        SET
+            username = COALESCE(:username, username),
+            location = COALESCE(:location, location),
+            goal = COALESCE(:goal, goal)
+
+        WHERE id = :user_id
+
+        RETURNING
             id,
             username,
-            email,
-            password,
             location,
             goal
-        FROM users
-        WHERE email = :email
-        LIMIT 1
     ");
 
     $stmt->execute([
-        ':email' => $email
+        ':user_id' => $user_id,
+        ':username' => $data['username'] ?? null,
+        ':location' => $data['location'] ?? null,
+        ':goal' => $data['goal'] ?? null
     ]);
 
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-    if (!$user) {
-
-        echo json_encode([
-            "success" => false,
-            "error" => "Пользователь не найден"
-        ], JSON_UNESCAPED_UNICODE);
-
-        exit;
-    }
-
-    if (!password_verify($password, $user['password'])) {
-
-        echo json_encode([
-            "success" => false,
-            "error" => "Неверный пароль"
-        ], JSON_UNESCAPED_UNICODE);
-
-        exit;
-    }
-
-    unset($user['password']);
 
     echo json_encode([
         "success" => true,

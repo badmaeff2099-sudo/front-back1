@@ -12,6 +12,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../../db.php';
 
+$pdo = getPDO();
+
 $user_id = $_GET['user_id'] ?? null;
 
 if (!$user_id) {
@@ -27,8 +29,17 @@ if (!$user_id) {
 try {
 
     $stmt = $pdo->prepare("
-        SELECT * FROM habits
+        SELECT
+            id,
+            user_id,
+            title,
+            total_days,
+            created_at
+
+        FROM habits
+
         WHERE user_id = :user_id
+
         ORDER BY id DESC
     ");
 

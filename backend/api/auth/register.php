@@ -2,30 +2,30 @@
 
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Headers: Content-Type");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-
-header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Methods: POST, OPTIONS");
+header("Content-Type: application/json");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit;
+    exit();
 }
 
 require_once '../../db.php';
 
+$pdo = getPDO();
+
 $data = json_decode(file_get_contents("php://input"), true);
 
-$name = trim($data['username'] ?? '');
+$username = trim($data['username'] ?? '');
 $email = trim($data['email'] ?? '');
 $password = trim($data['password'] ?? '');
 $location = trim($data['location'] ?? '');
 $goal = trim($data['goal'] ?? '');
 
-if (!$name || !$email || !$password) {
+if (!$username || !$email || !$password) {
 
     echo json_encode([
         "success" => false,
-        "error" => "Заполните все поля"
+        "error" => "Заполните обязательные поля"
     ], JSON_UNESCAPED_UNICODE);
 
     exit;
@@ -33,7 +33,6 @@ if (!$name || !$email || !$password) {
 
 try {
 
-    // Проверяем email
     $check = $pdo->prepare("
         SELECT id
         FROM users
@@ -56,27 +55,33 @@ try {
 
     $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
 
-    // Создаем пользователя
     $stmt = $pdo->prepare("
         INSERT INTO users (
-            name,
+            username,
             email,
             password,
             location,
             goal
         )
+
         VALUES (
-            :name,
+            :username,
             :email,
             :password,
             :location,
             :goal
         )
-        RETURNING id, name, email, location, goal
+
+        RETURNING
+            id,
+            username,
+            email,
+            location,
+            goal
     ");
 
     $stmt->execute([
-        ':name' => $name,
+        ':username' => $username,
         ':email' => $email,
         ':password' => $hashedPassword,
         ':location' => $location,
@@ -87,13 +92,7 @@ try {
 
     echo json_encode([
         "success" => true,
-        "user" => [
-            "id" => $user['id'],
-            "username" => $user['name'],
-            "email" => $user['email'],
-            "location" => $user['location'],
-            "goal" => $user['goal']
-        ]
+        "user" => $user
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {

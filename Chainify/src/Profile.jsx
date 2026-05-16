@@ -42,10 +42,8 @@ function Profile({ currentUser, onBack, onUpdateUser, profileUser }) {
   const [isEditing, setIsEditing] = useState(false);
   const [form] = Form.useForm();
   const [userData, setUserData] = useState(() => {
-    const base = typeof currentUser === "object" ? currentUser : {};
-    const saved = localStorage.getItem(`chainify-user-${base.username || currentUser}`);
-    return saved ? { ...base, ...JSON.parse(saved) } : base;
-  });
+  return typeof currentUser === "object" ? currentUser : {};
+});
   const [stats, setStats] = useState({ totalDays: 0, streak: 0 });
   const [reactions, setReactions] = useState([]);
 
@@ -69,25 +67,34 @@ function Profile({ currentUser, onBack, onUpdateUser, profileUser }) {
   const handleSave = async (values) => {
     try {
       const res = await updateProfile(currentUserId, {
-        bio: values.bio || "",
-        goal: values.goal || "",
-        daily_actions: values.daily_actions || "",
-        location: values.location || "",
-        full_name: values.fullName || "",
-      });
+  username: values.username || "",
+  goal: values.goal || "",
+  location: values.location || "",
+});
       if (res.success) {
-        const updatedData = { ...userData, ...values, ...res.user };
-        setUserData(updatedData);
-        localStorage.setItem("chainify-user-data", JSON.stringify(res.user));
-        onUpdateUser(res.user);
-        message.success("Профиль успешно обновлён!");
-        setIsEditing(false);
-      } else {
+const updatedUser = {
+  ...userData,
+  ...values,
+  ...res.user
+};
+
+setUserData(updatedUser);
+onUpdateUser(updatedUser);
+
+localStorage.setItem(
+  "chainify-user-data",
+  JSON.stringify(updatedUser)
+);
+
+  message.success("Профиль успешно обновлён!");
+  setIsEditing(false);
+} else {
         message.error(res.error || "Ошибка при сохранении");
       }
-    } catch {
-      message.error("Ошибка соединения");
-    }
+    } catch (e) {
+  console.log(e);
+  message.error("Ошибка соединения");
+}
   };
 
   const handleCancel = () => {

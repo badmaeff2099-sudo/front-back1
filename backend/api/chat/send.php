@@ -19,62 +19,50 @@ try {
     $data = json_decode(file_get_contents("php://input"), true);
 
     $user_id = $data['user_id'] ?? null;
-    $day_date = $data['day_date'] ?? null;
-    $status = $data['status'] ?? 'done';
+    $channel = trim($data['channel'] ?? 'general');
+    $message = trim($data['message'] ?? '');
 
-    if (!$user_id || !$day_date) {
-
-        echo json_encode([
-            "success" => false,
-            "message" => "user_id and day_date required"
-        ], JSON_UNESCAPED_UNICODE);
-
-        exit;
-    }
-
-    $check = $pdo->prepare("
-        SELECT id
-        FROM progress
-        WHERE user_id = :user_id
-        AND day_date = :day_date
-    ");
-
-    $check->execute([
-        ':user_id' => $user_id,
-        ':day_date' => $day_date
-    ]);
-
-    if ($check->fetch()) {
+    if (!$user_id || !$message) {
 
         echo json_encode([
             "success" => false,
-            "error" => "Already marked for this date"
+            "message" => "user_id and message required"
         ], JSON_UNESCAPED_UNICODE);
 
         exit;
     }
 
     $stmt = $pdo->prepare("
-        INSERT INTO progress (
+        INSERT INTO chat_messages (
             user_id,
-            day_date,
-            status
+            channel,
+            message
         )
         VALUES (
             :user_id,
-            :day_date,
-            :status
+            :channel,
+            :message
         )
+        RETURNING id, created_at
     ");
 
     $stmt->execute([
         ':user_id' => $user_id,
-        ':day_date' => $day_date,
-        ':status' => $status
+        ':channel' => $channel,
+        ':message' => $message
     ]);
 
+    $created = $stmt->fetch(PDO::FETCH_ASSOC);
+
     echo json_encode([
-        "success" => true
+        "success" => true,
+        "message_data" => [
+            "id" => $created['id'],
+            "user_id" => $user_id,
+            "channel" => $channel,
+            "message" => $message,
+            "created_at" => $created['created_at']
+        ]
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {

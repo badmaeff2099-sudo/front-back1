@@ -11,36 +11,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../../db.php';
+
 $pdo = getPDO();
 
 try {
 
-    $channel = $_GET['channel'] ?? 'general';
-    $limit = (int)($_GET['limit'] ?? 50);
+    $user_id = $_GET['user_id'] ?? null;
+
+    if (!$user_id) {
+
+        echo json_encode([
+            "success" => false,
+            "message" => "user_id required"
+        ], JSON_UNESCAPED_UNICODE);
+
+        exit;
+    }
 
     $stmt = $pdo->prepare("
         SELECT
-            c.id,
-            c.message,
-            c.created_at,
-            u.username
-        FROM chat_messages c
-        JOIN users u ON u.id = c.user_id
-        WHERE c.channel = :channel
-        ORDER BY c.created_at ASC
-        LIMIT :limit
+            r.id,
+            r.emoji,
+            r.created_at,
+            u.username AS from_username
+        FROM reactions r
+        JOIN users u
+            ON u.id = r.from_user_id
+        WHERE r.to_user_id = :user_id
+        ORDER BY r.created_at DESC
     ");
 
-    $stmt->bindValue(':channel', $channel, PDO::PARAM_STR);
-    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->execute([
+        ':user_id' => $user_id
+    ]);
 
-    $stmt->execute();
-
-    $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $reactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     echo json_encode([
         "success" => true,
-        "messages" => $messages
+        "reactions" => $reactions
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {

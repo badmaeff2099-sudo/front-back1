@@ -67,8 +67,24 @@ export async function getMessages(channel = 'general', limit = 50) {
 }
 
 export async function updateProfile(userId, data) {
-  return request('/users/update.php', {
-    method: 'POST',
-    body: JSON.stringify({ user_id: userId, ...data }),
-  });
+  const res = await fetch(
+    "http://localhost:8000/api/users/update.php",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        ...data,
+      }),
+    }
+  );
+
+  return res.json();
+}
+
+
+export async function getLeaderboard() {
+  return request('/rating.php');
 }

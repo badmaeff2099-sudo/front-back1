@@ -23,14 +23,17 @@ import {
 import Auth from "./Auth";
 import Profile from "./Profile";
 import Chat from "./Chat";
+import Leaderboard from "./Leaderboard";
+import { getRank } from "./utils/ranks";
 import { getUsers, markDay } from "./api";
+import UserProfile from "./UserProfile";
 import { requestPermission, checkAndNotify } from "./notifications";
 import "./styles.css";
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
 
-const PARTICIPANTS_PER_PAGE = 8;
+const PARTICIPANTS_PER_PAGE = 11;
 const DAYS_TO_SHOW = 30;
 
 function getDayColor(dateStr, completedDates) {
@@ -40,15 +43,7 @@ function getDayColor(dateStr, completedDates) {
   return "missed";
 }
 
-function getLast30Days() {
-  const days = [];
-  for (let i = DAYS_TO_SHOW - 1; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    days.push(d.toISOString().slice(0, 10));
-  }
-  return days;
-}
+
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -59,23 +54,38 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
   const [showProfile, setShowProfile] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [participants, setParticipants] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState("");
   const [locations, setLocations] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const days = getLast30Days();
+ 
 
   const loadParticipants = async (location) => {
     setLoading(true);
     try {
       const res = await getUsers(location);
       if (res.success) {
-        setParticipants(res.users);
-        const locs = [...new Set(res.users.map((u) => u.location).filter(Boolean))];
-        setLocations(locs);
-      }
+  setParticipants(res.users);
+
+  const locs = [
+    ...new Set(
+      res.users
+        .map((u) => u.location)
+        .filter(Boolean)
+    ),
+  ];
+
+  setLocations((prev) => {
+    const same =
+      JSON.stringify(prev) === JSON.stringify(locs);
+
+    return same ? prev : locs;
+  });
+}
     } catch {
       message.error("Не удалось загрузить участников");
     } finally {
@@ -83,20 +93,32 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    if (isAuthenticated && currentUser) {
-      const loc = currentUser.location || "";
-      setSelectedLocation(loc);
-      loadParticipants(loc);
-      requestPermission();
-      checkAndNotify();
-    }
-  }, [isAuthenticated]);
+useEffect(() => {
+  if (!isAuthenticated || !currentUser) return;
 
-  const handleLogin = (userData) => {
-    setCurrentUser(userData);
-    setIsAuthenticated(true);
-  };
+  const loc = currentUser.location || "";
+
+  setSelectedLocation(loc);
+
+  loadParticipants(loc);
+
+  requestPermission();
+
+  checkAndNotify();
+
+}, [isAuthenticated, currentUser]);
+
+ const handleLogin = (userData) => {
+
+  localStorage.setItem(
+    "chainify-user-data",
+    JSON.stringify(userData)
+  );
+
+  setCurrentUser(userData);
+
+  setIsAuthenticated(true);
+};
 
   const handleLogout = () => {
     localStorage.removeItem("chainify-user-data");
@@ -106,10 +128,20 @@ function App() {
     message.info("Вы вышли из системы");
   };
 
-  const handleUpdateUser = (updatedUser) => {
-    setCurrentUser(updatedUser);
-    localStorage.setItem("chainify-user-data", JSON.stringify(updatedUser));
-  };
+ const handleUpdateUser = (updatedUser) => {
+  setCurrentUser((prev) => ({
+    ...prev,
+    ...updatedUser,
+  }));
+
+  localStorage.setItem(
+    "chainify-user-data",
+    JSON.stringify({
+      ...currentUser,
+      ...updatedUser,
+    })
+  );
+};
 
   const handleLocationChange = (loc) => {
     setSelectedLocation(loc);
@@ -145,6 +177,23 @@ function App() {
     return <Auth onLogin={handleLogin} />;
   }
 
+  if (showLeaderboard) {
+  return (
+    <ConfigProvider
+      theme={{
+        token: {
+          colorPrimary: "#c8c4bfff",
+          borderRadius: 8,
+        },
+      }}
+    >
+      <Leaderboard
+        onBack={() => setShowLeaderboard(false)}
+      />
+    </ConfigProvider>
+  );
+}
+
   if (showProfile) {
     return (
       <ConfigProvider theme={{ token: { colorPrimary: "#c8c4bfff", borderRadius: 8 } }}>
@@ -157,6 +206,24 @@ function App() {
     );
   }
 
+  if (selectedUser) {
+  return (
+    <ConfigProvider
+      theme={{
+        token: {
+          colorPrimary: "#c8c4bfff",
+          borderRadius: 8,
+        },
+      }}
+    >
+      <UserProfile
+        user={selectedUser}
+        onBack={() => setSelectedUser(null)}
+      />
+    </ConfigProvider>
+  );
+}
+
   const paginatedParticipants = participants.slice(
     (currentPage - 1) * PARTICIPANTS_PER_PAGE,
     currentPage * PARTICIPANTS_PER_PAGE
@@ -168,40 +235,87 @@ function App() {
     <ConfigProvider theme={{ token: { colorPrimary: "#c8c4bfff", borderRadius: 8 } }}>
       <Layout className="app-layout">
         <Header className="app-header">
-          <Title level={2} className="header-title">
-            Chainify
-          </Title>
-          <Space>
-            {locations.length > 0 && (
-              <Select
-                value={selectedLocation || undefined}
-                placeholder="Все локации"
-                allowClear
-                style={{ minWidth: 140 }}
-                onChange={(val) => handleLocationChange(val || "")}
-                options={[
-                  ...locations.map((l) => ({ value: l, label: l })),
-                ]}
-                prefix={<EnvironmentOutlined />}
-              />
-            )}
-            <Button
-              type="link"
-              icon={<TrophyOutlined />}
-              className="header-link"
-            >
-              Рейтинг
-            </Button>
-            <Button
-              type="link"
-              icon={<LogoutOutlined />}
-              className="header-link"
-              onClick={handleLogout}
-            >
-              Выйти
-            </Button>
-          </Space>
-        </Header>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      width: "100%",
+      gap: 20,
+    }}
+  >
+    {/* Левая часть */}
+    <Title
+      level={2}
+      className="header-title"
+      style={{
+        margin: 0,
+        minWidth: 160,
+      }}
+    >
+      Chainify
+    </Title>
+
+    {/* Центр */}
+    <div
+      style={{
+        flex: 1,
+        textAlign: "center",
+      }}
+    >
+      <Text
+        style={{
+          fontSize: "20px",
+          fontWeight: 700,
+          color: "#0f0d0d",
+          letterSpacing: "0.5px",
+        }}
+      >
+        Каждый день — новая Возможность!
+      </Text>
+    </div>
+
+    {/* Правая часть */}
+    <Space>
+      {locations.length > 0 && (
+        <Select
+          value={selectedLocation || undefined}
+          placeholder="Все локации"
+          allowClear
+          style={{ minWidth: 140 }}
+          onChange={(val) =>
+            handleLocationChange(val || "")
+          }
+          options={locations.map((l) => ({
+            value: l,
+            label: l,
+          }))}
+          prefix={<EnvironmentOutlined />}
+        />
+      )}
+
+      <Button
+        type="link"
+        icon={<TrophyOutlined />}
+        className="header-link"
+        onClick={() =>
+          setShowLeaderboard(true)
+        }
+      >
+        Рейтинг
+      </Button>
+
+      <Button
+        type="link"
+        icon={<LogoutOutlined />}
+        className="header-link"
+        onClick={handleLogout}
+      >
+        Выйти
+      </Button>
+    </Space>
+  </div>
+</Header>
 
         <Content className="app-content">
           <div className="main-content">
@@ -243,6 +357,7 @@ function App() {
                   )}
                 </Space>
               </Card>
+              
             </div>
 
             <div className="right-panel">
@@ -255,6 +370,7 @@ function App() {
                   <>
                     <div className="progress-grid">
                       {paginatedParticipants.map((participant, index) => {
+                        const rank = getRank(participant.completed_dates.length);
                         const globalIndex = (currentPage - 1) * PARTICIPANTS_PER_PAGE + index + 1;
                         const isCurrentUser = currentUser?.id === participant.id;
                         const today = new Date().toISOString().slice(0, 10);
@@ -266,8 +382,9 @@ function App() {
                               <div className="column-header">
                                 <Space direction="vertical" size={4} align="center">
                                   <Badge
-                                    count={globalIndex}
-                                    style={{
+  count={globalIndex}
+  title={`${rank.icon} ${rank.title}`}
+  style={{
                                       backgroundColor:
                                         participant.completed_dates.length > 0
                                           ? "#1DB954"
@@ -279,9 +396,16 @@ function App() {
                                       fontWeight: "bold",
                                     }}
                                   />
-                                  <Text strong style={{ fontSize: "14px", textTransform: "capitalize" }}>
-                                    {participant.username}
-                                  </Text>
+                                  <Text
+  strong
+  style={{
+    fontSize: "14px",
+    cursor: "pointer",
+  }}
+  onClick={() => setSelectedUser(participant)}
+>
+  {participant.username}
+</Text>
                                   {participant.goal && (
                                     <Tag color="default" style={{ marginTop: "4px", maxWidth: "100px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                       {participant.goal}
@@ -290,42 +414,157 @@ function App() {
                                   <Text type="secondary" style={{ fontSize: "12px", fontWeight: "bold" }}>
                                     {participant.completed_dates.length} дней
                                   </Text>
-                                  {isCurrentUser && !todayDone && (
-                                    <Button
-                                      size="small"
-                                      type="primary"
-                                      onClick={() => handleMarkDay(participant.id)}
-                                      style={{ marginTop: 4, fontSize: "11px" }}
-                                    >
-                                      Отметить сегодня
-                                    </Button>
-                                  )}
+                                  
                                 </Space>
                               </div>
 
-                              <div className="progress-bars">
-                                {days.map((dateStr) => {
-                                  const color = getDayColor(dateStr, participant.completed_dates);
-                                  const cellStyle = {
-                                    width: 14,
-                                    height: 14,
-                                    borderRadius: 3,
-                                    marginBottom: 3,
-                                    backgroundColor:
-                                      color === "done"
-                                        ? "#1DB954"
-                                        : color === "missed"
-                                        ? "#ff4d4f"
-                                        : "#e8e8e8",
-                                    border: dateStr === today ? "2px solid #faad14" : "none",
-                                  };
-                                  return (
-                                    <Tooltip key={dateStr} title={dateStr}>
-                                      <div style={cellStyle} />
-                                    </Tooltip>
-                                  );
-                                })}
-                              </div>
+                              <div
+  className="progress-bars"
+  style={{
+    display: "flex",
+    flexDirection: "column-reverse",
+  }}
+>
+  {[...Array(DAYS_TO_SHOW)].map((_, index) => {
+
+  const completedDates =
+    participant.completed_dates || [];
+
+  const today = new Date();
+
+  today.setHours(0, 0, 0, 0);
+
+  /*
+    Дата регистрации
+  */
+
+  
+  const createdAt = participant.created_at
+  ? new Date(participant.created_at)
+  : new Date();
+
+  createdAt.setHours(0, 0, 0, 0);
+
+  /*
+    Сколько дней прошло
+    с регистрации
+  */
+
+  const daysSinceRegistration =
+    Math.floor(
+      (today - createdAt) /
+      (1000 * 60 * 60 * 24)
+    );
+
+  /*
+    Текущая позиция цикла
+  */
+
+  const cycleDay =
+    daysSinceRegistration % DAYS_TO_SHOW;
+
+  /*
+    Нижняя клетка = день регистрации
+  */
+
+  const visualDay = index;
+
+  /*
+    Смещение внутри цикла
+  */
+
+  const offset =
+    cycleDay - visualDay;
+
+  const cellDate = new Date(today);
+
+  cellDate.setDate(
+    today.getDate() - offset
+  );
+
+  const dateStr =
+    cellDate.toLocaleDateString("sv-SE");
+
+  const isToday =
+    dateStr ===
+    today.toLocaleDateString("sv-SE");
+
+  const isCompleted =
+    completedDates.includes(dateStr);
+
+  /*
+    Показываем только активную часть цикла
+  */
+
+  const isVisible =
+    visualDay <= cycleDay;
+
+  let color = "#d1d5db";
+
+  if (isVisible) {
+
+    color = "#e8e8e8";
+
+    if (isCompleted) {
+      color = "#1DB954";
+    }
+
+    else if (dateStr < today.toLocaleDateString("sv-SE")) {
+      color = "#ff4d4f";
+    }
+  }
+
+  const canMarkToday =
+  isToday &&
+  isCurrentUser &&
+  !isCompleted;
+
+return (
+  <Tooltip
+    key={index}
+    title={
+      canMarkToday
+        ? "Нажми чтобы отметить день"
+        : dateStr
+    }
+  >
+    <div
+      onClick={() => {
+        if (canMarkToday) {
+          handleMarkDay(participant.id);
+        }
+      }}
+      style={{
+        width: 14,
+        height: 14,
+        borderRadius: 3,
+        marginBottom: 3,
+        backgroundColor: color,
+
+        border: isToday
+          ? "2px solid #faad14"
+          : "none",
+
+        transition: "all 0.2s ease",
+
+        cursor: canMarkToday
+          ? "pointer"
+          : "default",
+
+        transform:
+          canMarkToday
+            ? "scale(1.08)"
+            : "scale(1)",
+
+        boxShadow: canMarkToday
+          ? "0 0 10px rgba(250,173,20,0.7)"
+          : "none",
+      }}
+    />
+  </Tooltip>
+);
+})}
+</div>
                             </Space>
                           </div>
                         );
