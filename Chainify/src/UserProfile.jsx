@@ -518,7 +518,7 @@ export default function UserProfile({
                         icon={
                           <FireOutlined />
                         }
-                        title="Пропущено"
+                        title="Пропущено дней"
                         value={missedDays}
                       />
                      
