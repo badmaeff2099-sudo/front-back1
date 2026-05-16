@@ -1,3 +1,4 @@
+/* ─── Chat (compact floating widget) ─────────────────────── */
 .chat-container {
   margin-top: 24px;
 }
@@ -7,216 +8,190 @@
   position: fixed;
   bottom: 20px;
   left: 20px;
-  width: 350px;
+  width: 340px;
   z-index: 1000;
   max-height: 500px;
 }
 
 .chat-card {
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: #111111 !important;
+  border: 1px solid #1e1e1e !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
 }
 
 .chat-card-compact {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
   max-height: 500px;
   display: flex;
   flex-direction: column;
 }
 
 .chat-card .ant-card-body {
-  padding: 24px;
+  padding: 20px;
 }
 
 .chat-header {
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #1e1e1e;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .chat-collapse-button {
-  color: #667eea;
+  color: #555555 !important;
   padding: 4px 8px;
+  transition: color 0.2s;
 }
 
 .chat-collapse-button:hover {
-  color: #764ba2;
-  background: rgba(102, 126, 234, 0.1);
+  color: #aaaaaa !important;
+  background: transparent !important;
 }
 
 .chat-messages {
   max-height: 500px;
   overflow-y: auto;
-  margin-bottom: 20px;
-  padding: 8px 0;
-  min-height: 200px;
+  margin-bottom: 16px;
+  padding: 4px 0;
+  min-height: 180px;
 }
 
 .chat-messages-compact {
-  max-height: 250px;
-  min-height: 150px;
-  margin-bottom: 12px;
+  max-height: 220px;
+  min-height: 120px;
+  margin-bottom: 10px;
 }
 
-.chat-messages::-webkit-scrollbar {
-  width: 6px;
-}
-
-.chat-messages::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
-}
-
-.chat-messages::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 10px;
-}
-
-.chat-messages::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
+.chat-messages::-webkit-scrollbar { width: 4px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 4px; }
+.chat-messages::-webkit-scrollbar-thumb:hover { background: #3a3a3a; }
 
 .comments-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .comment-item {
   display: flex;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 12px;
-  background: #f5f5f5;
-  transition: all 0.3s ease;
-  animation: fadeIn 0.3s ease;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #1a1a1a;
+  transition: background 0.15s;
+  animation: fadeIn 0.25s ease;
 }
 
 .comment-item:hover {
-  background: #e8e8e8;
-  transform: translateX(4px);
+  background: #202020;
+  transform: none;
 }
 
 .comment-item.own-comment {
-  background: #e6f0ff;
+  background: #1a1f2e;
   margin-left: auto;
-  max-width: 85%;
+  max-width: 88%;
 }
 
 .comment-item.own-comment:hover {
-  background: #d4e5ff;
+  background: #1e2436;
 }
 
-.comment-avatar {
-  flex-shrink: 0;
-}
+.comment-avatar { flex-shrink: 0; }
 
-.comment-content {
-  flex: 1;
-  min-width: 0;
-}
+.comment-content { flex: 1; min-width: 0; }
 
 .comment-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   flex-wrap: wrap;
 }
 
 .comment-author {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: #262626;
+  color: #cccccc;
   text-transform: capitalize;
 }
 
 .comment-time {
-  font-size: 12px;
-  color: #8c8c8c;
+  font-size: 11px;
+  color: #444444;
 }
 
 .comment-message {
-  font-size: 14px;
-  color: #595959;
-  line-height: 1.6;
+  font-size: 13px;
+  color: #888888;
+  line-height: 1.55;
   word-wrap: break-word;
   white-space: pre-wrap;
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .chat-input-container {
-  border-top: 1px solid #f0f0f0;
-  padding-top: 16px;
+  border-top: 1px solid #1e1e1e;
+  padding-top: 12px;
 }
 
-.chat-form {
-  width: 100%;
-}
+.chat-form { width: 100%; }
 
 .chat-textarea {
-  border-radius: 8px;
+  border-radius: 6px;
   resize: none;
-  transition: all 0.3s ease;
+  background: #1a1a1a !important;
+  border-color: #252525 !important;
+  color: #cccccc !important;
+  transition: border-color 0.2s;
 }
 
-.chat-textarea:hover {
-  border-color: #667eea;
-}
-
+.chat-textarea:hover { border-color: #333333 !important; }
 .chat-textarea:focus,
 .chat-textarea-focused {
-  border-color: #667eea;
-  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+  border-color: #3a3a3a !important;
+  box-shadow: none !important;
 }
 
 .chat-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 12px;
+  margin-top: 10px;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
 }
 
 .chat-send-button {
-  height: 40px;
-  border-radius: 8px;
+  height: 36px;
+  border-radius: 6px;
   font-weight: 600;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-  transition: all 0.3s ease;
-  padding: 0 24px;
+  font-size: 13px;
+  background: #f0f0f0 !important;
+  border: none !important;
+  color: #0a0a0a !important;
+  box-shadow: none !important;
+  padding: 0 20px;
+  transition: background 0.2s;
 }
 
 .chat-send-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+  background: #ffffff !important;
+  transform: none;
+  box-shadow: none !important;
 }
 
 .chat-send-button:active {
-  transform: translateY(0);
+  background: #d8d8d8 !important;
 }
 
-/* Анимации */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.chat-card-compact .ant-card-body {
+/* ─── Compact card internals ──────────────────────────────── */
+.chat-card-body {
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -225,79 +200,45 @@
 }
 
 .chat-card-compact .chat-header {
-  margin-bottom: 12px;
-  padding-bottom: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
 }
 
 .chat-card-compact .chat-input-container {
-  padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
+  padding-top: 10px;
   margin-top: auto;
 }
 
-.chat-card-compact .chat-actions {
-  margin-top: 8px;
+.chat-card-compact .chat-actions { margin-top: 6px; }
+
+/* ─── Animations ──────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Адаптивность */
+/* ─── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
   .chat-container.chat-compact {
     width: calc(100% - 40px);
     left: 20px;
     right: 20px;
-    max-width: 350px;
-  }
-  .chat-card .ant-card-body {
-    padding: 16px;
+    max-width: 340px;
   }
 
-  .chat-messages {
-    max-height: 400px;
-    min-height: 150px;
-  }
+  .chat-card .ant-card-body { padding: 14px; }
+  .chat-messages { max-height: 380px; min-height: 120px; }
+  .comment-item { padding: 8px 10px; }
+  .comment-item.own-comment { max-width: 92%; }
 
-  .comment-item {
-    padding: 10px;
-  }
-
-  .comment-item.own-comment {
-    max-width: 90%;
-  }
-
-  .chat-actions {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .chat-send-button {
-    width: 100%;
-  }
-
-  .comment-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
+  .chat-actions { flex-direction: column; align-items: stretch; }
+  .chat-send-button { width: 100%; }
+  .comment-header { flex-direction: column; align-items: flex-start; gap: 2px; }
 }
 
-/* Улучшенные стили для пустого состояния */
-.ant-empty {
-  padding: 40px 20px;
-}
+/* ─── Empty state ─────────────────────────────────────────── */
+.ant-empty { padding: 32px 20px; }
+.ant-empty-description { color: #444444; font-size: 13px; }
 
-.ant-empty-description {
-  color: #8c8c8c;
-  font-size: 14px;
-}
-
-/* Стили для длинных сообщений */
-.comment-message {
-  max-width: 100%;
-  overflow-wrap: break-word;
-  word-break: break-word;
-}
-
-/* Улучшенная прокрутка */
-.chat-messages {
-  scroll-behavior: smooth;
-}
+/* ─── Scroll behavior ─────────────────────────────────────── */
+.chat-messages { scroll-behavior: smooth; }
