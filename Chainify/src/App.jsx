@@ -414,16 +414,7 @@ useEffect(() => {
                                   <Text type="secondary" style={{ fontSize: "12px", fontWeight: "bold" }}>
                                     {participant.completed_dates.length} дней
                                   </Text>
-                                  {isCurrentUser && !todayDone && (
-                                    <Button
-                                      size="small"
-                                      type="primary"
-                                      onClick={() => handleMarkDay(participant.id)}
-                                      style={{ marginTop: 4, fontSize: "11px" }}
-                                    >
-                                      Отметить сегодня
-                                    </Button>
-                                  )}
+                                  
                                 </Space>
                               </div>
 
@@ -523,29 +514,55 @@ useEffect(() => {
     }
   }
 
-  return (
-    <Tooltip
-      key={index}
-      title={dateStr}
-    >
-      <div
-        style={{
-          width: 14,
-          height: 14,
-          borderRadius: 3,
-          marginBottom: 3,
-          backgroundColor: color,
+  const canMarkToday =
+  isToday &&
+  isCurrentUser &&
+  !isCompleted;
 
-          border: isToday
-            ? "2px solid #faad14"
-            : "none",
+return (
+  <Tooltip
+    key={index}
+    title={
+      canMarkToday
+        ? "Нажми чтобы отметить день"
+        : dateStr
+    }
+  >
+    <div
+      onClick={() => {
+        if (canMarkToday) {
+          handleMarkDay(participant.id);
+        }
+      }}
+      style={{
+        width: 14,
+        height: 14,
+        borderRadius: 3,
+        marginBottom: 3,
+        backgroundColor: color,
 
-          transition:
-            "all 0.2s ease",
-        }}
-      />
-    </Tooltip>
-  );
+        border: isToday
+          ? "2px solid #faad14"
+          : "none",
+
+        transition: "all 0.2s ease",
+
+        cursor: canMarkToday
+          ? "pointer"
+          : "default",
+
+        transform:
+          canMarkToday
+            ? "scale(1.08)"
+            : "scale(1)",
+
+        boxShadow: canMarkToday
+          ? "0 0 10px rgba(250,173,20,0.7)"
+          : "none",
+      }}
+    />
+  </Tooltip>
+);
 })}
 </div>
                             </Space>
