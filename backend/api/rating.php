@@ -17,10 +17,12 @@ $pdo = getPDO();
 try {
 
     $stmt = $pdo->query("
+
         SELECT
             u.id,
             u.username,
             u.goal,
+            u.created_at,
 
             COUNT(
                 CASE
@@ -29,32 +31,119 @@ try {
                 END
             ) AS total_days,
 
-            COUNT(
-                CASE
-                    WHEN p.status = 'missed'
-                    THEN 1
-                END
-            ) AS missed_days
+            COALESCE(
+                json_agg(p.day_date)
+                FILTER (
+                    WHERE p.day_date IS NOT NULL
+                ),
+                '[]'
+            ) AS completed_dates
 
         FROM users u
 
         LEFT JOIN progress p
             ON p.user_id = u.id
 
-        GROUP BY u.id, u.username, u.goal
+        GROUP BY
+            u.id,
+            u.username,
+            u.goal,
+            u.created_at
 
         ORDER BY total_days DESC
+
     ");
 
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($users as &$user) {
 
-        $user['total_days'] = (int)$user['total_days'];
-        $user['missed_days'] = (int)$user['missed_days'];
+        $user['total_days'] =
+            (int)$user['total_days'];
 
-        // временно streak = total_days
-        $user['streak'] = $user['total_days'];
+        if (is_string($user['completed_dates'])) {
+
+            $user['completed_dates'] =
+                json_decode(
+                    $user['completed_dates'],
+                    true
+                );
+        }
+
+        /*
+            Считаем пропущенные дни
+        */
+
+        $createdAt =
+    new DateTime($user['created_at']);
+
+$today =
+    new DateTime();
+
+$createdAt->setTime(0, 0, 0);
+$today->setTime(0, 0, 0);
+
+/*
+    Только полностью прошедшие дни
+*/
+
+$daysSinceRegistration =
+    $createdAt->diff($today)->days;
+
+/*
+    Пропущенные дни
+*/
+
+$missedDays =
+    $daysSinceRegistration -
+    $user['total_days'];
+
+if ($missedDays < 0) {
+    $missedDays = 0;
+}
+
+$user['missed_days'] =
+    $missedDays;
+
+        /*
+            Серия подряд
+        */
+
+        $completedDates =
+            $user['completed_dates'];
+
+        rsort($completedDates);
+
+        $streak = 0;
+
+        $currentDate =
+            new DateTime();
+
+        while (true) {
+
+            $dateStr =
+                $currentDate
+                    ->format('Y-m-d');
+
+            if (
+                in_array(
+                    $dateStr,
+                    $completedDates
+                )
+            ) {
+
+                $streak++;
+
+                $currentDate->modify('-1 day');
+
+            } else {
+
+                break;
+            }
+        }
+
+        $user['streak'] =
+            $streak;
     }
 
     echo json_encode([

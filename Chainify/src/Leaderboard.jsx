@@ -28,6 +28,46 @@ import { getRank } from "./utils/ranks";
 
 const { Title, Text } = Typography;
 
+function calculateStreak(completedDates = []) {
+
+  if (!completedDates.length) {
+    return 0;
+  }
+
+  const sorted = [...completedDates]
+    .sort(
+      (a, b) =>
+        new Date(b) - new Date(a)
+    );
+
+  let streak = 0;
+
+  const today = new Date();
+
+  today.setHours(0, 0, 0, 0);
+
+  for (let i = 0; i < sorted.length; i++) {
+
+    const checkDate = new Date(today);
+
+    checkDate.setDate(
+      today.getDate() - i
+    );
+
+    const checkStr =
+      checkDate
+        .toLocaleDateString("sv-SE");
+
+    if (sorted.includes(checkStr)) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
+}
+
 function Leaderboard({ currentUser, onBack }) {
   const [users, setUsers] = useState([]);
 
@@ -135,25 +175,53 @@ function Leaderboard({ currentUser, onBack }) {
 },
 
     {
-      title: "Прогресс",
-      key: "progress",
+  title: "Цикл",
 
-      render: (_, user) => {
-        const percent = Math.min(
-          (user.total_days / 30) * 100,
-          100
-        );
+  key: "progress",
 
-        return (
-          <div style={{ width: 140 }}>
-            <Progress
-              percent={Math.round(percent)}
-              size="small"
-            />
-          </div>
-        );
-      },
-    },
+  render: (_, user) => {
+
+    const cycle =
+  user.total_days === 0
+    ? 0
+    : user.total_days % 30 || 30;
+
+    return (
+      <div
+        style={{
+          minWidth: 160,
+        }}
+      >
+        <Text
+          strong
+          style={{
+            fontSize: 13,
+          }}
+        >
+          {cycle} / 30 дней
+        </Text>
+
+        <Progress
+          percent={(cycle / 30) * 100}
+          showInfo={false}
+          strokeColor="#1DB954"
+          size="small"
+        />
+
+        <Text
+          type="secondary"
+          style={{
+            fontSize: 11,
+          }}
+        >
+          До нового цикла:
+          {" "}
+          {30 - cycle}
+        </Text>
+      </div>
+    );
+  },
+},
 
     {
       title: "Дней",
@@ -185,19 +253,27 @@ function Leaderboard({ currentUser, onBack }) {
       sorter: (a, b) =>
         b.streak - a.streak,
 
-      render: (value) => (
-        <Tag
-          color="orange"
-          style={{
-            padding: "6px 12px",
-            borderRadius: 12,
-            fontSize: 14,
-          }}
-        >
-          <FireOutlined /> {value}
-        </Tag>
-      ),
-    },
+      render: (_, user) => {
+
+  const streak =
+    calculateStreak(
+      user.completed_dates || []
+    );
+
+  return (
+    <Tag
+      color="orange"
+      style={{
+        padding: "6px 12px",
+        borderRadius: 12,
+        fontSize: 14,
+      }}
+    >
+      <FireOutlined /> {streak}
+    </Tag>
+  );
+},
+},
 
     {
       title: "Пропущено",
