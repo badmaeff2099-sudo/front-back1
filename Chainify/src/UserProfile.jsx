@@ -31,23 +31,181 @@ export default function UserProfile({
   user,
   onBack,
 }) {
-  const completedDays =
-    user?.completed_dates?.length || 0;
 
-  const rank = getRank(completedDays);
+  /*
+    Нормализуем даты
+  */
+
+  const completedDates = Array.from(
+    new Set(
+      (user?.completed_dates || [])
+        .filter(Boolean)
+        .map((date) => {
+
+          const d = new Date(date);
+
+          d.setHours(0, 0, 0, 0);
+
+          return d
+            .toLocaleDateString("sv-SE");
+        })
+    )
+  ).sort();
+
+  /*
+    Сегодня
+  */
+
+  const todayDate =
+    new Date();
+
+  todayDate.setHours(
+    0,
+    0,
+    0,
+    0
+  );
+
+  const today =
+    todayDate
+      .toLocaleDateString("sv-SE");
+
+  /*
+    Дата регистрации
+  */
+
+  const createdAt =
+    user.created_at
+      ? new Date(
+          user.created_at +
+            "T00:00:00"
+        )
+      : new Date();
+
+  createdAt.setHours(
+    0,
+    0,
+    0,
+    0
+  );
+
+  /*
+    Всего отмеченных
+  */
+
+  const completedDays =
+    completedDates.length;
+
+  /*
+    Отметил ли сегодня
+  */
+
+  const todayCompleted =
+    completedDates.includes(
+      today
+    );
+
+  /*
+    Прошло дней
+    с регистрации
+  */
+
+  const passedDays =
+    Math.floor(
+      (todayDate - createdAt) /
+        (1000 * 60 * 60 * 24)
+    );
+
+  /*
+    Пропущенные дни
+
+    Сегодня НЕ считается
+    пропущенным
+  */
+
+  const missedDays =
+    Math.max(
+      0,
+      passedDays -
+        completedDays +
+        (todayCompleted ? 1 : 0)
+    );
+
+  /*
+    Прогресс цикла
+
+    Выполненные +
+    пропущенные дни
+  */
+
+  const totalCycleDays =
+    completedDays +
+    missedDays;
 
   /*
     Текущий цикл
   */
 
   const currentCycleDays =
-    completedDays % DAYS_TO_SHOW === 0 &&
-    completedDays > 0
-      ? DAYS_TO_SHOW
-      : completedDays % DAYS_TO_SHOW;
+    totalCycleDays === 0
+      ? 0
+      : totalCycleDays %
+          DAYS_TO_SHOW ||
+        DAYS_TO_SHOW;
+
+  /*
+    Прогресс %
+  */
 
   const progressPercent =
-    (currentCycleDays / DAYS_TO_SHOW) * 100;
+    (currentCycleDays /
+      DAYS_TO_SHOW) *
+    100;
+
+  /*
+    Текущая серия
+  */
+
+  function calculateCurrentStreak(
+    dates = []
+  ) {
+
+    if (!dates.length) {
+      return 0;
+    }
+
+    let streak = 0;
+
+    const checkDate =
+      new Date(todayDate);
+
+    while (true) {
+
+      const checkStr =
+        checkDate
+          .toLocaleDateString(
+            "sv-SE"
+          );
+
+      if (
+        dates.includes(checkStr)
+      ) {
+
+        streak++;
+
+        checkDate.setDate(
+          checkDate.getDate() -
+            1
+        );
+
+      } else {
+
+        break;
+      }
+    }
+
+    return streak;
+  }
 
   /*
     Рекордная серия
@@ -56,9 +214,13 @@ export default function UserProfile({
   function getLongestStreak(
     dates = []
   ) {
-    if (!dates.length) return 0;
 
-    const sorted = [...dates].sort();
+    if (!dates.length) {
+      return 0;
+    }
+
+    const sorted =
+      [...dates].sort();
 
     let longest = 1;
     let current = 1;
@@ -68,25 +230,32 @@ export default function UserProfile({
       i < sorted.length;
       i++
     ) {
-      const prev = new Date(
-        sorted[i - 1]
-      );
 
-      const curr = new Date(
-        sorted[i]
-      );
+      const prev =
+        new Date(
+          sorted[i - 1]
+        );
+
+      const curr =
+        new Date(
+          sorted[i]
+        );
 
       const diff =
         (curr - prev) /
         (1000 * 60 * 60 * 24);
 
       if (diff === 1) {
+
         current++;
+
         longest = Math.max(
           longest,
           current
         );
+
       } else {
+
         current = 1;
       }
     }
@@ -94,31 +263,21 @@ export default function UserProfile({
     return longest;
   }
 
-  const longestStreak =
-    getLongestStreak(
-      user.completed_dates
+  const currentStreak =
+    calculateCurrentStreak(
+      completedDates
     );
 
-  const today = new Date()
-    .toLocaleDateString("sv-SE");
+  const longestStreak =
+    getLongestStreak(
+      completedDates
+    );
 
-  const todayDone =
-    user.completed_dates?.includes(today);
-
-  const cyclePosition =
-    completedDays % DAYS_TO_SHOW === 0 &&
-    completedDays > 0
-      ? DAYS_TO_SHOW
-      : completedDays % DAYS_TO_SHOW;
-
-  const currentIndex =
-    cyclePosition === 0
-      ? 0
-      : todayDone
-      ? cyclePosition - 1
-      : cyclePosition;
+  const rank =
+    getRank(completedDays);
 
   return (
+
     <div
       style={{
         minHeight: "100vh",
@@ -126,12 +285,14 @@ export default function UserProfile({
         padding: "24px",
       }}
     >
+
       <div
         style={{
           maxWidth: 1100,
           margin: "0 auto",
         }}
       >
+
         <Button
           icon={<ArrowLeftOutlined />}
           onClick={onBack}
@@ -144,7 +305,9 @@ export default function UserProfile({
         </Button>
 
         <Row gutter={[24, 24]}>
+
           <Col xs={24} lg={8}>
+
             <Card
               style={{
                 borderRadius: 20,
@@ -152,13 +315,15 @@ export default function UserProfile({
                   "0 4px 20px rgba(0,0,0,0.06)",
               }}
             >
+
               <Space
                 direction="vertical"
                 align="center"
                 size="large"
-                style={{ width: "100%" }}
+                style={{
+                  width: "100%",
+                }}
               >
-                <BadgeStatus rank={rank} />
 
                 <Avatar
                   size={140}
@@ -175,6 +340,7 @@ export default function UserProfile({
                     textAlign: "center",
                   }}
                 >
+
                   <Title
                     level={2}
                     style={{
@@ -196,12 +362,15 @@ export default function UserProfile({
                       fontWeight: 600,
                     }}
                   >
-                    {rank.icon}{" "}
+                    {rank.icon}
+                    {" "}
                     {rank.title}
                   </Tag>
+
                 </div>
 
                 {user.goal && (
+
                   <Card
                     size="small"
                     style={{
@@ -211,7 +380,9 @@ export default function UserProfile({
                         "#fafafa",
                     }}
                   >
+
                     <Space direction="vertical">
+
                       <Text type="secondary">
                         Цель
                       </Text>
@@ -219,11 +390,14 @@ export default function UserProfile({
                       <Text strong>
                         {user.goal}
                       </Text>
+
                     </Space>
+
                   </Card>
                 )}
 
                 {user.location && (
+
                   <Tag
                     icon={
                       <EnvironmentOutlined />
@@ -237,11 +411,15 @@ export default function UserProfile({
                     {user.location}
                   </Tag>
                 )}
+
               </Space>
+
             </Card>
+
           </Col>
 
           <Col xs={24} lg={16}>
+
             <Space
               direction="vertical"
               size="large"
@@ -249,6 +427,7 @@ export default function UserProfile({
                 width: "100%",
               }}
             >
+
               <Card
                 style={{
                   borderRadius: 20,
@@ -256,6 +435,7 @@ export default function UserProfile({
                     "0 4px 20px rgba(0,0,0,0.06)",
                 }}
               >
+
                 <Space
                   direction="vertical"
                   size="large"
@@ -263,10 +443,11 @@ export default function UserProfile({
                     width: "100%",
                   }}
                 >
+
                   <div>
+
                     <Title level={4}>
-                      Прогресс текущего
-                      цикла
+                      Прогресс текущего цикла
                     </Title>
 
                     <Text
@@ -276,15 +457,9 @@ export default function UserProfile({
                         marginBottom: 10,
                       }}
                     >
-                      Один цикл =
-                      {" "}
-                      <strong>
-                        {DAYS_TO_SHOW}
-                      </strong>{" "}
-                      дней подряд.
-                      После завершения
-                      цикл начинается
-                      заново.
+                      Учитываются
+                      выполненные
+                      и пропущенные дни
                     </Text>
 
                     <Progress
@@ -296,22 +471,18 @@ export default function UserProfile({
 
                     <div
                       style={{
-                        display:
-                          "flex",
+                        display: "flex",
                         justifyContent:
                           "space-between",
                         marginTop: 8,
                       }}
                     >
+
                       <Text strong>
-                        {
-                          currentCycleDays
-                        }{" "}
-                        /{" "}
-                        {
-                          DAYS_TO_SHOW
-                        }{" "}
-                        дней
+                        {currentCycleDays}
+                        {" / "}
+                        {DAYS_TO_SHOW}
+                        {" дней"}
                       </Text>
 
                       <Text type="secondary">
@@ -320,46 +491,42 @@ export default function UserProfile({
                         )}
                         %
                       </Text>
+
                     </div>
+
                   </div>
 
                   <Divider />
 
                   <Row gutter={[16, 16]}>
-                    <Col
-                      xs={24}
-                      sm={12}
-                    >
+
+                    <Col xs={24} sm={12}>
+
                       <StatCard
                         icon={
                           <CalendarOutlined />
                         }
-                        title="Всего отмеченных дней"
-                        value={
-                          completedDays
-                        }
+                        title="Всего отмечено"
+                        value={completedDays}
                       />
+
                     </Col>
 
-                    <Col
-                      xs={24}
-                      sm={12}
-                    >
+                    <Col xs={24} sm={12}>
+
                       <StatCard
                         icon={
                           <FireOutlined />
                         }
-                        title="Текущий статус"
-                        value={
-                          rank.title
-                        }
+                        title="Пропущено"
+                        value={missedDays}
                       />
+                     
+
                     </Col>
 
-                    <Col
-                      xs={24}
-                      sm={12}
-                    >
+                    <Col xs={24} sm={12}>
+
                       <StatCard
                         icon={
                           <TrophyOutlined />
@@ -367,22 +534,25 @@ export default function UserProfile({
                         title="Рекордная серия"
                         value={`${longestStreak} дней`}
                       />
+
                     </Col>
 
-                    <Col
-                      xs={24}
-                      sm={12}
-                    >
-                      <StatCard
+                    <Col xs={24} sm={12}>
+
+                       <StatCard
                         icon={
                           <FireOutlined />
                         }
-                        title="Прогресс цикла"
-                        value={`${currentCycleDays}/${DAYS_TO_SHOW}`}
+                        title="Текущая серия"
+                        value={`${currentStreak} дней`}
                       />
+
                     </Col>
+
                   </Row>
+
                 </Space>
+
               </Card>
 
               <Card
@@ -393,6 +563,7 @@ export default function UserProfile({
                     "0 4px 20px rgba(0,0,0,0.06)",
                 }}
               >
+
                 <Text
                   type="secondary"
                   style={{
@@ -402,8 +573,8 @@ export default function UserProfile({
                 >
                   Зеленые клетки —
                   выполненные дни.
-                  Желтая рамка —
-                  текущий день.
+                  Красные —
+                  пропущенные.
                 </Text>
 
                 <div
@@ -413,53 +584,98 @@ export default function UserProfile({
                     flexWrap: "wrap",
                   }}
                 >
+
                   {[...Array(
                     DAYS_TO_SHOW
                   )].map((_, index) => {
+
+                    const cellDate =
+                      new Date(
+                        createdAt
+                      );
+
+                    cellDate.setDate(
+                      createdAt.getDate() +
+                        index
+                    );
+
+                    cellDate.setHours(
+                      0,
+                      0,
+                      0,
+                      0
+                    );
+
+                    const dateStr =
+                      cellDate
+                        .toLocaleDateString(
+                          "sv-SE"
+                        );
+
+                    const isToday =
+                      dateStr === today;
+
+                    const isCompleted =
+                      completedDates.includes(
+                        dateStr
+                      );
+
                     let color =
-                      "#e8e8e8";
+                      "#f5f5f5";
+
+                    /*
+                      Будущие дни
+                    */
 
                     if (
-                      index <
-                        cyclePosition ||
-                      (todayDone &&
-                        index ===
-                          cyclePosition -
-                            1)
+                      cellDate > todayDate
                     ) {
+
+                      color =
+                        "#f5f5f5";
+                    }
+
+                    /*
+                      Выполнено
+                    */
+
+                    else if (
+                      isCompleted
+                    ) {
+
                       color =
                         "#1DB954";
                     }
 
-                    const currentCell =
-                      index ===
-                      currentIndex;
+                    /*
+                      Пропущено
+                    */
 
-                    const cellDate =
-                      new Date();
+                    else if (
+                      cellDate < todayDate
+                    ) {
 
-                    if (todayDone) {
-                      cellDate.setDate(
-                        cellDate.getDate() -
-                          (cyclePosition -
-                            1 -
-                            index)
-                      );
-                    } else {
-                      cellDate.setDate(
-                        cellDate.getDate() -
-                          (cyclePosition -
-                            index)
-                      );
+                      color =
+                        "#ff4d4f";
+                    }
+
+                    /*
+                      Сегодня
+                    */
+
+                    else {
+
+                      color =
+                        "#e8e8e8";
                     }
 
                     return (
+
                       <Tooltip
                         key={index}
-                        title={cellDate.toLocaleDateString(
-                          "sv-SE"
-                        )}
+                        title={dateStr}
                       >
+
                         <div
                           style={{
                             width: 18,
@@ -467,18 +683,23 @@ export default function UserProfile({
                             borderRadius: 5,
                             backgroundColor:
                               color,
+
                             border:
-                              currentCell
+                              isToday
                                 ? "2px solid #faad14"
                                 : "none",
+
                             transition:
                               "all .2s ease",
                           }}
                         />
+
                       </Tooltip>
                     );
                   })}
+
                 </div>
+
               </Card>
 
               <Card
@@ -489,72 +710,57 @@ export default function UserProfile({
                     "0 4px 20px rgba(0,0,0,0.06)",
                 }}
               >
+
                 <Space wrap>
+
                   <Achievement
                     done={
-                      completedDays >=
-                      1
+                      completedDays >= 1
                     }
                     text="Первый шаг"
                   />
 
                   <Achievement
                     done={
-                      completedDays >=
-                      7
+                      completedDays >= 7
                     }
                     text="7 дней"
                   />
 
                   <Achievement
                     done={
-                      completedDays >=
-                      30
+                      completedDays >= 30
                     }
                     text="30 дней"
                   />
 
                   <Achievement
                     done={
-                      completedDays >=
-                      100
+                      completedDays >= 100
                     }
                     text="100 дней"
                   />
 
                   <Achievement
                     done={
-                      completedDays >=
-                      365
+                      completedDays >= 365
                     }
                     text="Год дисциплины"
                   />
-                </Space>
-              </Card>
-            </Space>
-          </Col>
-        </Row>
-      </div>
-    </div>
-  );
-}
 
-function BadgeStatus({
-  rank,
-}) {
-  return (
-    <Tag
-      color={rank.color}
-      style={{
-        borderRadius: 999,
-        padding: "8px 18px",
-        fontSize: 14,
-        fontWeight: 700,
-      }}
-    >
-      <TrophyOutlined />{" "}
-      {rank.icon} {rank.title}
-    </Tag>
+                </Space>
+
+              </Card>
+
+            </Space>
+
+          </Col>
+
+        </Row>
+
+      </div>
+
+    </div>
   );
 }
 
@@ -563,7 +769,9 @@ function StatCard({
   title,
   value,
 }) {
+
   return (
+
     <Card
       size="small"
       style={{
@@ -571,7 +779,9 @@ function StatCard({
         background: "#fafafa",
       }}
     >
+
       <Space>
+
         <div
           style={{
             fontSize: 22,
@@ -581,6 +791,7 @@ function StatCard({
         </div>
 
         <div>
+
           <Text type="secondary">
             {title}
           </Text>
@@ -595,8 +806,11 @@ function StatCard({
           >
             {value}
           </Text>
+
         </div>
+
       </Space>
+
     </Card>
   );
 }
@@ -605,7 +819,9 @@ function Achievement({
   done,
   text,
 }) {
+
   return (
+
     <Tag
       color={
         done
@@ -618,7 +834,8 @@ function Achievement({
         fontSize: 13,
       }}
     >
-      {done ? "🏆" : "🔒"}{" "}
+      {done ? "🏆" : "🔒"}
+      {" "}
       {text}
     </Tag>
   );
