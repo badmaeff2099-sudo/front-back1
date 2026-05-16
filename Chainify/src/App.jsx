@@ -447,9 +447,10 @@ useEffect(() => {
     Дата регистрации
   */
 
+  
   const createdAt = participant.created_at
-    ? new Date(participant.created_at)
-    : new Date();
+  ? new Date(participant.created_at)
+  : new Date();
 
   createdAt.setHours(0, 0, 0, 0);
 
@@ -462,7 +463,7 @@ useEffect(() => {
     Math.floor(
       (today - createdAt) /
       (1000 * 60 * 60 * 24)
-    ) + 1;
+    );
 
   /*
     Текущая позиция цикла
