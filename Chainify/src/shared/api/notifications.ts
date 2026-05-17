@@ -1,0 +1,34 @@
+const REMINDER_HOUR = 20
+
+export function requestPermission(): void {
+  if (!("Notification" in window)) return
+  if (Notification.permission === "default") {
+    Notification.requestPermission()
+  }
+}
+
+export function checkAndNotify(): void {
+  if (!("Notification" in window)) return
+  if (Notification.permission !== "granted") return
+
+  const today = new Date().toISOString().slice(0, 10)
+  const now = new Date()
+
+  if (now.getHours() < REMINDER_HOUR) return
+
+  const alreadyNotified = localStorage.getItem("chainify-notified-date")
+  if (alreadyNotified === today) return
+
+  try {
+    const userData = JSON.parse(localStorage.getItem("chainify-user-data") || "{}")
+    if (!userData.id) return
+
+    new Notification("Chainify", {
+      body: "Не забудь отметить свой день! Один шаг — и цепочка продолжается. 🔥",
+      icon: "/favicon.ico",
+    })
+    localStorage.setItem("chainify-notified-date", today)
+  } catch {
+    // ignore
+  }
+}

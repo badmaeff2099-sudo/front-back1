@@ -15,6 +15,9 @@ require_once '../../db.php';
 
 $pdo = getPDO();
 
+// Ensure avatar_url column exists
+try { $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)"); } catch (PDOException $e) {}
+
 $location = $_GET['location'] ?? '';
 
 try {
@@ -26,6 +29,7 @@ try {
         u.location,
         u.goal,
         u.created_at,
+        u.avatar_url,
 
         COALESCE(
             json_agg(p.day_date)

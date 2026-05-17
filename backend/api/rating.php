@@ -23,6 +23,7 @@ try {
             u.username,
             u.goal,
             u.created_at,
+            u.avatar_url,
 
             COUNT(
                 CASE
@@ -48,7 +49,8 @@ try {
             u.id,
             u.username,
             u.goal,
-            u.created_at
+            u.created_at,
+            u.avatar_url
 
         ORDER BY total_days DESC
 

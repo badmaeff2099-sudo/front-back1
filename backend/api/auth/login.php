@@ -37,7 +37,11 @@ try {
             email,
             password,
             location,
-            goal
+            goal,
+            bio,
+            daily_actions,
+            avatar_url,
+            created_at
         FROM users
         WHERE email = :email
         LIMIT 1

@@ -77,7 +77,9 @@ try {
             username,
             email,
             location,
-            goal
+            goal,
+            created_at,
+            avatar_url
     ");
 
     $stmt->execute([

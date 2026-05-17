@@ -34,7 +34,9 @@ try {
         SET
             username = COALESCE(:username, username),
             location = COALESCE(:location, location),
-            goal = COALESCE(:goal, goal)
+            goal = COALESCE(:goal, goal),
+            bio = COALESCE(:bio, bio),
+            daily_actions = COALESCE(:daily_actions, daily_actions)
 
         WHERE id = :user_id
 
@@ -42,14 +44,20 @@ try {
             id,
             username,
             location,
-            goal
+            goal,
+            bio,
+            daily_actions,
+            created_at,
+            avatar_url
     ");
 
     $stmt->execute([
         ':user_id' => $user_id,
         ':username' => $data['username'] ?? null,
         ':location' => $data['location'] ?? null,
-        ':goal' => $data['goal'] ?? null
+        ':goal' => $data['goal'] ?? null,
+        ':bio' => $data['bio'] ?? null,
+        ':daily_actions' => $data['daily_actions'] ?? null,
     ]);
 
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
