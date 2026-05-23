@@ -120,7 +120,10 @@ export default function UserProfile({ user, currentUser, onBack }: UserProfilePr
           <div className="bg-[#111] border border-[#1e1e1e] rounded-lg p-6 flex flex-col items-center gap-4">
             <UserAvatar avatarUrl={user.avatar_url} username={user.username} size={128} />
             <div className="text-center flex flex-col items-center gap-3">
-              <h2 className="text-xl font-bold text-foreground capitalize">{user.username}</h2>
+              <div>
+                <h2 className="text-xl font-bold text-foreground capitalize">{user.username}</h2>
+                {user.nickname && <p className="text-sm text-muted-foreground mt-0.5">@{user.nickname}</p>}
+              </div>
               <span className="px-3 py-1 rounded-full text-sm font-semibold" style={{ background: rank.color + "22", color: rank.color }}>
                 {rank.icon} {rank.title}
               </span>

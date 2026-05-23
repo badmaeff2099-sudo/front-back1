@@ -75,6 +75,7 @@ try {
         RETURNING
             id,
             username,
+            nickname,
             email,
             location,
             goal,

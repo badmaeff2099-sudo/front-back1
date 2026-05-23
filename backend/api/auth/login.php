@@ -34,6 +34,7 @@ try {
         SELECT
             id,
             username,
+            nickname,
             email,
             password,
             location,

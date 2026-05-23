@@ -29,10 +29,25 @@ if (!$user_id) {
 
 try {
 
+    // Check nickname uniqueness if provided
+    $newNickname = $data['nickname'] ?? null;
+    if ($newNickname !== null && $newNickname !== '') {
+        $nickCheck = $pdo->prepare("SELECT id FROM users WHERE nickname = :nickname AND id != :user_id");
+        $nickCheck->execute([':nickname' => $newNickname, ':user_id' => $user_id]);
+        if ($nickCheck->fetch()) {
+            echo json_encode([
+                "success" => false,
+                "error" => "Этот никнейм уже занят"
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
+
     $stmt = $pdo->prepare("
         UPDATE users
         SET
             username = COALESCE(:username, username),
+            nickname = COALESCE(:nickname, nickname),
             location = COALESCE(:location, location),
             goal = COALESCE(:goal, goal),
             bio = COALESCE(:bio, bio),
@@ -43,6 +58,7 @@ try {
         RETURNING
             id,
             username,
+            nickname,
             location,
             goal,
             bio,
@@ -54,6 +70,7 @@ try {
     $stmt->execute([
         ':user_id' => $user_id,
         ':username' => $data['username'] ?? null,
+        ':nickname' => $newNickname !== '' ? $newNickname : null,
         ':location' => $data['location'] ?? null,
         ':goal' => $data['goal'] ?? null,
         ':bio' => $data['bio'] ?? null,

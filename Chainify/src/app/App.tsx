@@ -10,6 +10,8 @@ const DashboardPage = lazy(() => import("@/pages/dashboard/ui/DashboardPage"))
 const ProfilePage = lazy(() => import("@/pages/profile/ui/ProfilePage"))
 const LeaderboardPage = lazy(() => import("@/pages/leaderboard/ui/LeaderboardPage"))
 const UserProfilePage = lazy(() => import("@/pages/user-profile/ui/UserProfilePage"))
+const FriendsPage = lazy(() => import("@/pages/friends/ui/FriendsPage"))
+const CabinetPage = lazy(() => import("@/pages/cabinet/ui/CabinetPage"))
 
 function PageLoader() {
   return (
@@ -26,6 +28,8 @@ function App() {
     return saved ? JSON.parse(saved) : null
   })
   const [showProfile, setShowProfile] = useState(false)
+  const [showFriends, setShowFriends] = useState(false)
+  const [showCabinet, setShowCabinet] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
@@ -47,6 +51,8 @@ function App() {
     setIsAuthenticated(false)
     setCurrentUser(null)
     setShowProfile(false)
+    setShowFriends(false)
+    setShowCabinet(false)
     setShowLogoutConfirm(false)
     toast("Вы вышли из системы")
   }
@@ -56,9 +62,16 @@ function App() {
     localStorage.setItem("chainify-user-data", JSON.stringify({ ...currentUser, ...updatedUser }))
   }
 
+  const handleSelectUser = (user: UserType) => {
+    setShowFriends(false)
+    setSelectedUser(user)
+  }
+
   if (!isAuthenticated) return <Suspense fallback={<PageLoader />}><AuthPage onLogin={handleLogin} /></Suspense>
   if (showLeaderboard) return <Suspense fallback={<PageLoader />}><LeaderboardPage currentUser={currentUser ?? undefined} onBack={() => setShowLeaderboard(false)} /></Suspense>
-  if (showProfile) return <Suspense fallback={<PageLoader />}><ProfilePage currentUser={currentUser!} onBack={() => setShowProfile(false)} onUpdateUser={handleUpdateUser} /></Suspense>
+  if (showProfile) return <Suspense fallback={<PageLoader />}><ProfilePage currentUser={currentUser!} onBack={() => setShowProfile(false)} onUpdateUser={handleUpdateUser} onLogout={handleLogout} /></Suspense>
+  if (showFriends) return <Suspense fallback={<PageLoader />}><FriendsPage currentUser={currentUser!} onBack={() => setShowFriends(false)} onSelectUser={handleSelectUser} /></Suspense>
+  if (showCabinet) return <Suspense fallback={<PageLoader />}><CabinetPage currentUser={currentUser!} onBack={() => setShowCabinet(false)} /></Suspense>
   if (selectedUser) return <Suspense fallback={<PageLoader />}><TooltipProvider><UserProfilePage user={selectedUser} currentUser={currentUser!} onBack={() => setSelectedUser(null)} /></TooltipProvider></Suspense>
 
   return (
@@ -67,6 +80,8 @@ function App() {
         currentUser={currentUser!}
         onShowProfile={() => setShowProfile(true)}
         onShowLeaderboard={() => setShowLeaderboard(true)}
+        onShowFriends={() => setShowFriends(true)}
+        onShowCabinet={() => setShowCabinet(true)}
         onSelectUser={setSelectedUser}
         onLogout={() => setShowLogoutConfirm(true)}
       />

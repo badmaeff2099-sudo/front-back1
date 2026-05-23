@@ -15,8 +15,10 @@ require_once '../../db.php';
 
 $pdo = getPDO();
 
-// Ensure avatar_url column exists
+// Ensure avatar_url and nickname columns exist
 try { $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(50)"); } catch (PDOException $e) {}
+try { $pdo->exec("ALTER TABLE users ADD CONSTRAINT IF NOT EXISTS users_nickname_unique UNIQUE (nickname)"); } catch (PDOException $e) {}
 
 $location = $_GET['location'] ?? '';
 
@@ -26,6 +28,7 @@ try {
     SELECT
         u.id,
         u.username,
+        u.nickname,
         u.location,
         u.goal,
         u.created_at,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Check, X } from "lucide-react"
+import { Check, X, ChevronRight } from "lucide-react"
 import { toast } from "sonner"
 import { getFriends, respondFriendRequest } from "@/shared/api/client"
 import { UserAvatar } from "@/entities/user/ui/UserAvatar"
@@ -8,6 +8,7 @@ import type { User as UserType } from "@/entities/user/model/types"
 interface FriendsPanelProps {
   currentUser: UserType
   onSelectUser: (user: UserType) => void
+  onShowFriends: () => void
 }
 
 interface FriendEntry {
@@ -26,7 +27,7 @@ interface IncomingEntry {
   location?: string
 }
 
-export function FriendsPanel({ currentUser, onSelectUser }: FriendsPanelProps) {
+export function FriendsPanel({ currentUser, onSelectUser, onShowFriends }: FriendsPanelProps) {
   const [friends, setFriends] = useState<FriendEntry[]>([])
   const [incoming, setIncoming] = useState<IncomingEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -80,9 +81,15 @@ export function FriendsPanel({ currentUser, onSelectUser }: FriendsPanelProps) {
         </div>
       )}
 
-      <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">
-        Друзья {friends.length > 0 && `(${friends.length})`}
-      </p>
+      <button
+        onClick={onShowFriends}
+        className="flex items-center justify-between w-full mb-3 group"
+      >
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider group-hover:text-foreground transition-colors">
+          Друзья {friends.length > 0 && `(${friends.length})`}
+        </span>
+        <ChevronRight className="h-3 w-3 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors" />
+      </button>
 
       {loading ? (
         <div className="grid grid-cols-3 gap-2">
@@ -94,7 +101,12 @@ export function FriendsPanel({ currentUser, onSelectUser }: FriendsPanelProps) {
           ))}
         </div>
       ) : friends.length === 0 ? (
-        <p className="text-xs text-muted-foreground text-center py-3">Пока нет друзей</p>
+        <button
+          onClick={onShowFriends}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors text-center w-full py-3"
+        >
+          Пока нет друзей — найти
+        </button>
       ) : (
         <div className="grid grid-cols-3 gap-2">
           {friends.map((friend) => (
