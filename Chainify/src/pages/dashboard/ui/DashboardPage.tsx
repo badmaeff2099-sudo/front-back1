@@ -69,6 +69,7 @@ interface DashboardPageProps {
   currentUser: UserType;
   onShowProfile: () => void;
   onShowLeaderboard: () => void;
+  onShowFriends: () => void;
   onSelectUser: (user: UserType) => void;
   onLogout: () => void;
 }
@@ -117,6 +118,7 @@ export default function DashboardPage({
   currentUser,
   onShowProfile,
   onShowLeaderboard,
+  onShowFriends,
   onSelectUser,
   onLogout,
 }: DashboardPageProps) {
@@ -398,6 +400,7 @@ export default function DashboardPage({
                 <FriendsPanel
                   currentUser={currentUser}
                   onSelectUser={onSelectUser}
+                  onShowFriends={onShowFriends}
                 />
               </div>
 
