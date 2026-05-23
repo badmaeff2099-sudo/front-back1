@@ -11,6 +11,7 @@ const ProfilePage = lazy(() => import("@/pages/profile/ui/ProfilePage"))
 const LeaderboardPage = lazy(() => import("@/pages/leaderboard/ui/LeaderboardPage"))
 const UserProfilePage = lazy(() => import("@/pages/user-profile/ui/UserProfilePage"))
 const FriendsPage = lazy(() => import("@/pages/friends/ui/FriendsPage"))
+const CabinetPage = lazy(() => import("@/pages/cabinet/ui/CabinetPage"))
 
 function PageLoader() {
   return (
@@ -28,6 +29,7 @@ function App() {
   })
   const [showProfile, setShowProfile] = useState(false)
   const [showFriends, setShowFriends] = useState(false)
+  const [showCabinet, setShowCabinet] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
@@ -50,6 +52,7 @@ function App() {
     setCurrentUser(null)
     setShowProfile(false)
     setShowFriends(false)
+    setShowCabinet(false)
     setShowLogoutConfirm(false)
     toast("Вы вышли из системы")
   }
@@ -68,6 +71,7 @@ function App() {
   if (showLeaderboard) return <Suspense fallback={<PageLoader />}><LeaderboardPage currentUser={currentUser ?? undefined} onBack={() => setShowLeaderboard(false)} /></Suspense>
   if (showProfile) return <Suspense fallback={<PageLoader />}><ProfilePage currentUser={currentUser!} onBack={() => setShowProfile(false)} onUpdateUser={handleUpdateUser} onLogout={handleLogout} /></Suspense>
   if (showFriends) return <Suspense fallback={<PageLoader />}><FriendsPage currentUser={currentUser!} onBack={() => setShowFriends(false)} onSelectUser={handleSelectUser} /></Suspense>
+  if (showCabinet) return <Suspense fallback={<PageLoader />}><CabinetPage currentUser={currentUser!} onBack={() => setShowCabinet(false)} /></Suspense>
   if (selectedUser) return <Suspense fallback={<PageLoader />}><TooltipProvider><UserProfilePage user={selectedUser} currentUser={currentUser!} onBack={() => setSelectedUser(null)} /></TooltipProvider></Suspense>
 
   return (
@@ -77,6 +81,7 @@ function App() {
         onShowProfile={() => setShowProfile(true)}
         onShowLeaderboard={() => setShowLeaderboard(true)}
         onShowFriends={() => setShowFriends(true)}
+        onShowCabinet={() => setShowCabinet(true)}
         onSelectUser={setSelectedUser}
         onLogout={() => setShowLogoutConfirm(true)}
       />

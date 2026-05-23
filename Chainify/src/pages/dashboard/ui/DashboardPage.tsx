@@ -9,6 +9,7 @@ import {
   Flame,
   Users,
   Calendar,
+  LayoutDashboard,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import {
@@ -70,6 +71,7 @@ interface DashboardPageProps {
   onShowProfile: () => void;
   onShowLeaderboard: () => void;
   onShowFriends: () => void;
+  onShowCabinet: () => void;
   onSelectUser: (user: UserType) => void;
   onLogout: () => void;
 }
@@ -119,6 +121,7 @@ export default function DashboardPage({
   onShowProfile,
   onShowLeaderboard,
   onShowFriends,
+  onShowCabinet,
   onSelectUser,
   onLogout,
 }: DashboardPageProps) {
@@ -313,6 +316,14 @@ export default function DashboardPage({
                       className="bg-[#1a1a1a] border-[#252525] text-muted-foreground hover:text-foreground hover:bg-[#222] w-full"
                     >
                       <User className="h-4 w-4 mr-2" /> Мой профиль
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onShowCabinet}
+                      className="bg-[#1a1a1a] border-[#252525] text-muted-foreground hover:text-foreground hover:bg-[#222] w-full"
+                    >
+                      <LayoutDashboard className="h-4 w-4 mr-2" /> Мой кабинет
                     </Button>
 
                     {currentUser.goal && (
