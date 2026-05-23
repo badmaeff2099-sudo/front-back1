@@ -92,3 +92,11 @@ export async function getFriends(userId: number) {
 export async function getFriendStatus(userId: number, targetId: number) {
   return request(`/friends/status.php?user_id=${userId}&target_id=${targetId}`)
 }
+
+export async function deleteAccount(userId: number) {
+  return request('/users/delete.php', { method: 'POST', body: JSON.stringify({ user_id: userId }) })
+}
+
+export async function blockAccount(userId: number) {
+  return request('/users/block.php', { method: 'POST', body: JSON.stringify({ user_id: userId }) })
+}

@@ -58,7 +58,7 @@ function App() {
 
   if (!isAuthenticated) return <Suspense fallback={<PageLoader />}><AuthPage onLogin={handleLogin} /></Suspense>
   if (showLeaderboard) return <Suspense fallback={<PageLoader />}><LeaderboardPage currentUser={currentUser ?? undefined} onBack={() => setShowLeaderboard(false)} /></Suspense>
-  if (showProfile) return <Suspense fallback={<PageLoader />}><ProfilePage currentUser={currentUser!} onBack={() => setShowProfile(false)} onUpdateUser={handleUpdateUser} /></Suspense>
+  if (showProfile) return <Suspense fallback={<PageLoader />}><ProfilePage currentUser={currentUser!} onBack={() => setShowProfile(false)} onUpdateUser={handleUpdateUser} onLogout={handleLogout} /></Suspense>
   if (selectedUser) return <Suspense fallback={<PageLoader />}><TooltipProvider><UserProfilePage user={selectedUser} currentUser={currentUser!} onBack={() => setSelectedUser(null)} /></TooltipProvider></Suspense>
 
   return (

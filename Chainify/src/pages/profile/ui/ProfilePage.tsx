@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
-import { ArrowLeft, Trophy, Calendar, Camera, Loader2 } from "lucide-react"
+import { ArrowLeft, Trophy, Calendar, Camera, Loader2, Trash2 } from "lucide-react"
 import { Separator } from "@/shared/ui/separator"
-import { getProgress, uploadAvatar } from "@/shared/api/client"
+import { getProgress, uploadAvatar, deleteAccount, blockAccount } from "@/shared/api/client"
 import type { User as UserType } from "@/entities/user/model/types"
 import { UserAvatar } from "@/entities/user/ui/UserAvatar"
 import { EditProfileForm } from "@/features/edit-profile/ui/EditProfileForm"
@@ -12,15 +12,18 @@ interface ProfileProps {
   currentUser: UserType
   onBack: () => void
   onUpdateUser: (u: Partial<UserType>) => void
+  onLogout?: () => void
   profileUser?: UserType
 }
 
-function Profile({ currentUser, onBack, onUpdateUser, profileUser }: ProfileProps) {
+function Profile({ currentUser, onBack, onUpdateUser, onLogout, profileUser }: ProfileProps) {
   const profileUserId = profileUser?.id || currentUser?.id
   const isOwnProfile = !profileUser || profileUser.id === currentUser?.id
   const [userData, setUserData] = useState<UserType>(profileUser ?? currentUser)
   const [stats, setStats] = useState({ totalDays: 0, streak: 0 })
   const [uploading, setUploading] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -57,6 +60,44 @@ function Profile({ currentUser, onBack, onUpdateUser, profileUser }: ProfileProp
     } finally {
       setUploading(false)
       e.target.value = ""
+    }
+  }
+
+  const handleDelete = async () => {
+    setActionLoading(true)
+    try {
+      const res = await deleteAccount(userData.id)
+      if (res.success) {
+        toast.success("Аккаунт удалён")
+        localStorage.removeItem("chainify-user-data")
+        onLogout?.()
+      } else {
+        toast.error(res.error || "Ошибка при удалении")
+      }
+    } catch {
+      toast.error("Ошибка соединения")
+    } finally {
+      setActionLoading(false)
+      setShowDeleteModal(false)
+    }
+  }
+
+  const handleBlock = async () => {
+    setActionLoading(true)
+    try {
+      const res = await blockAccount(userData.id)
+      if (res.success) {
+        toast.success("Аккаунт заблокирован")
+        localStorage.removeItem("chainify-user-data")
+        onLogout?.()
+      } else {
+        toast.error(res.error || "Ошибка при блокировке")
+      }
+    } catch {
+      toast.error("Ошибка соединения")
+    } finally {
+      setActionLoading(false)
+      setShowDeleteModal(false)
     }
   }
 
@@ -138,9 +179,60 @@ function Profile({ currentUser, onBack, onUpdateUser, profileUser }: ProfileProp
                 </div>
               </div>
             </div>
+
+            {isOwnProfile && (
+              <>
+                <Separator className="my-6 bg-[#1e1e1e]" />
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="flex items-center gap-2 text-sm text-red-500/60 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" /> Удалить мой аккаунт
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Delete account modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-[#111] border border-[#1e1e1e] rounded-xl p-6 w-96 shadow-2xl">
+            <h3 className="text-base font-semibold text-foreground mb-1">Подождите!</h3>
+            <p className="text-sm text-muted-foreground mb-5">
+              Вы можете временно заблокировать ваш аккаунт вместо удаления. Заблокированный аккаунт можно восстановить, обратившись в поддержку.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleBlock}
+                disabled={actionLoading}
+                className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-brand/80 hover:bg-brand transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Да, заблокировать аккаунт
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={actionLoading}
+                className="w-full px-4 py-2.5 rounded-lg text-sm text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Нет, я хочу удалить аккаунт
+              </button>
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                disabled={actionLoading}
+                className="w-full px-4 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
