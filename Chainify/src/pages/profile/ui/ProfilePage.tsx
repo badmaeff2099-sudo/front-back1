@@ -96,6 +96,12 @@ function Profile({ currentUser, onBack, onUpdateUser, profileUser }: ProfileProp
                     </>
                   )}
                 </div>
+                <div className="flex flex-col items-center gap-0.5">
+                  <p className="text-base font-semibold text-foreground">{userData.username}</p>
+                  {userData.nickname && (
+                    <p className="text-sm text-muted-foreground">@{userData.nickname}</p>
+                  )}
+                </div>
                 {isOwnProfile && (
                   <EditProfileForm user={userData} onSave={handleSave} />
                 )}

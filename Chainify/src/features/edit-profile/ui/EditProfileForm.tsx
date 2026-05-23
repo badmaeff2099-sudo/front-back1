@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Controller, useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { toast } from "sonner"
-import { Loader2, User, Mail, Edit2, Save, X, MapPin, Target } from "lucide-react"
+import { Loader2, User, Mail, Edit2, Save, X, MapPin, Target, AtSign } from "lucide-react"
 import { Button } from "@/shared/ui/button"
 import { Input } from "@/shared/ui/input"
 import { Textarea } from "@/shared/ui/textarea"
@@ -23,6 +23,7 @@ export function EditProfileForm({ user, onSave }: EditProfileFormProps) {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       username: user.username ?? "",
+      nickname: user.nickname ?? "",
       email: user.email ?? "",
       bio: user.bio ?? "",
       location: user.location ?? "",
@@ -35,6 +36,7 @@ export function EditProfileForm({ user, onSave }: EditProfileFormProps) {
     try {
       const res = await updateProfile(user.id, {
         username: values.username ?? "",
+        nickname: values.nickname ?? "",
         goal: values.goal ?? "",
         location: values.location ?? "",
         bio: values.bio ?? "",
@@ -76,6 +78,18 @@ export function EditProfileForm({ user, onSave }: EditProfileFormProps) {
               <FieldError>{fieldState.error?.message}</FieldError>
             </Field>
           )} />
+          <Controller name="nickname" control={control} render={({ field, fieldState }) => (
+            <Field data-invalid={fieldState.invalid}>
+              <FieldLabel>Никнейм</FieldLabel>
+              <div className="relative">
+                <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input {...field} aria-invalid={fieldState.invalid} disabled={!isEditing} placeholder="уникальный никнейм" className="pl-9 bg-[#1a1a1a] border-[#252525] text-foreground disabled:opacity-60" />
+              </div>
+              <FieldError>{fieldState.error?.message}</FieldError>
+            </Field>
+          )} />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Controller name="email" control={control} render={({ field }) => (
             <Field>
               <FieldLabel>Email</FieldLabel>

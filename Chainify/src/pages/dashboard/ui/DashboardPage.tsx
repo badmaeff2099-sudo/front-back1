@@ -280,6 +280,9 @@ export default function DashboardPage({
                     <h3 className="text-base font-semibold capitalize text-foreground">
                       {currentUser.username}
                     </h3>
+                    {currentUser.nickname && (
+                      <p className="text-xs text-muted-foreground -mt-2">@{currentUser.nickname}</p>
+                    )}
 
                     <div className="relative">
                       <button
