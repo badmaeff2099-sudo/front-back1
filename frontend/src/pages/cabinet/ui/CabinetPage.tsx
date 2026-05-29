@@ -2,6 +2,45 @@ import { useState } from "react"
 import { ArrowLeft, Target, BarChart2, CalendarDays, ListChecks, Plus, Trash2 } from "lucide-react"
 import type { User as UserType } from "@/entities/user/model/types"
 
+/* ─── Planner types & helpers ───────────────────────────────── */
+interface NoteItem { id: number; text: string }
+interface PlannerData {
+  lastDate: string
+  today: NoteItem[]
+  tomorrow: NoteItem[]
+}
+
+function makeLines(count = 5): NoteItem[] {
+  return Array.from({ length: count }, (_, i) => ({ id: i + 1, text: "" }))
+}
+
+function todayStr(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function loadPlanner(userId: number): PlannerData {
+  try {
+    const raw = localStorage.getItem(`planner-${userId}`)
+    if (raw) {
+      const saved: PlannerData = JSON.parse(raw)
+      if (saved.lastDate < todayStr()) {
+        // New day — carry tomorrow → today, reset tomorrow
+        const rotated: PlannerData = {
+          lastDate: todayStr(),
+          today: saved.tomorrow.length ? saved.tomorrow : makeLines(),
+          tomorrow: makeLines(),
+        }
+        localStorage.setItem(`planner-${userId}`, JSON.stringify(rotated))
+        return rotated
+      }
+      return saved
+    }
+  } catch {}
+  const fresh: PlannerData = { lastDate: todayStr(), today: makeLines(), tomorrow: makeLines() }
+  localStorage.setItem(`planner-${userId}`, JSON.stringify(fresh))
+  return fresh
+}
+
 interface CabinetPageProps {
   currentUser: UserType
   onBack: () => void
@@ -148,6 +187,140 @@ function GoalSection({ currentUser }: { currentUser: UserType }) {
   )
 }
 
+/* ─── Sticky note card ──────────────────────────────────────── */
+interface StickyNoteProps {
+  title: string
+  items: NoteItem[]
+  readonly?: boolean
+  tilt?: string
+  onAdd: () => void
+  onChange: (id: number, value: string) => void
+}
+
+function StickyNote({ title, items, readonly = false, tilt = "", onAdd, onChange }: StickyNoteProps) {
+  return (
+    <div
+      className={`flex flex-col bg-[#fef9c3] border border-[#e8c93a]/50 rounded-xl shadow-lg overflow-hidden ${tilt} transition-transform`}
+      style={{ minWidth: 0 }}
+    >
+      {/* Pin */}
+      <div className="flex justify-center pt-3 pb-1">
+        <div className="w-3 h-3 rounded-full bg-[#e05252] shadow-sm border border-[#c43b3b]/40" />
+      </div>
+
+      {/* Title */}
+      <div className="px-5 pb-2 pt-1">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-[#8b6914] text-center">
+          {title}
+        </p>
+        {readonly && (
+          <p className="text-[9px] text-[#a07820]/60 text-center mt-0.5 uppercase tracking-wider">
+            только просмотр
+          </p>
+        )}
+      </div>
+
+      {/* Lines */}
+      <div className="flex flex-col px-4 pb-2">
+        {items.map((item, idx) => (
+          <div
+            key={item.id}
+            className="flex items-center gap-2 border-b border-[#d4b84a]/40 py-1.5 group"
+          >
+            <span className="text-[11px] text-[#b08a1e]/60 w-4 shrink-0 text-right select-none font-medium">
+              {idx + 1}
+            </span>
+            <input
+              value={item.text}
+              readOnly={readonly}
+              onChange={(e) => onChange(item.id, e.target.value)}
+              placeholder={readonly ? "" : "Запишите план..."}
+              className={`flex-1 bg-transparent text-sm font-medium focus:outline-none placeholder:text-[#b08a1e]/30
+                ${readonly
+                  ? "text-[#4a3a0a]/70 cursor-default select-text"
+                  : "text-[#2a1e00] caret-[#8b6914]"
+                }`}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Add button */}
+      {!readonly && (
+        <button
+          onClick={onAdd}
+          className="mx-4 mb-4 mt-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg
+            border border-dashed border-[#c9a02a]/50
+            text-[12px] font-semibold text-[#8b6914]
+            hover:bg-[#fef08a] hover:border-[#c9a02a] transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Добавить строку
+        </button>
+      )}
+      {readonly && <div className="mb-3" />}
+    </div>
+  )
+}
+
+/* ─── Planner section ───────────────────────────────────────── */
+function PlannerSection({ currentUser }: { currentUser: UserType }) {
+  const [data, setData] = useState<PlannerData>(() => loadPlanner(currentUser.id))
+
+  const saveData = (updated: PlannerData) => {
+    setData(updated)
+    localStorage.setItem(`planner-${currentUser.id}`, JSON.stringify(updated))
+  }
+
+  const handleTomorrowChange = (id: number, value: string) => {
+    saveData({
+      ...data,
+      tomorrow: data.tomorrow.map((item) => (item.id === id ? { ...item, text: value } : item)),
+    })
+  }
+
+  const addTomorrowLine = () => {
+    const nextId = data.tomorrow.length > 0 ? Math.max(...data.tomorrow.map((i) => i.id)) + 1 : 1
+    saveData({ ...data, tomorrow: [...data.tomorrow, { id: nextId, text: "" }] })
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <h2 className="text-sm font-semibold text-foreground">Мой планнер</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Записывайте планы на завтра — они автоматически станут планами на сегодня в новый день.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <StickyNote
+          title="Планы на сегодня"
+          items={data.today}
+          tilt="sm:-rotate-1"
+          onAdd={() => {
+            const nextId = data.today.length > 0 ? Math.max(...data.today.map((i) => i.id)) + 1 : 1
+            saveData({ ...data, today: [...data.today, { id: nextId, text: "" }] })
+          }}
+          onChange={(id, value) => {
+            saveData({
+              ...data,
+              today: data.today.map((item) => (item.id === id ? { ...item, text: value } : item)),
+            })
+          }}
+        />
+        <StickyNote
+          title="Планы на завтра"
+          items={data.tomorrow}
+          tilt="sm:rotate-1"
+          onAdd={addTomorrowLine}
+          onChange={handleTomorrowChange}
+        />
+      </div>
+    </div>
+  )
+}
+
 function ComingSoon({ label }: { label: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 gap-3 bg-[#111] border border-[#1e1e1e] rounded-xl">
@@ -197,7 +370,7 @@ export default function CabinetPage({ currentUser, onBack }: CabinetPageProps) {
           <div className="flex-1 min-w-0">
             {active === "goal"     && <GoalSection currentUser={currentUser} />}
             {active === "stats"    && <ComingSoon label="Моя статистика" />}
-            {active === "planner"  && <ComingSoon label="Мой планнер" />}
+            {active === "planner"  && <PlannerSection currentUser={currentUser} />}
             {active === "goals500" && <ComingSoon label="Мои 500 целей" />}
           </div>
         </div>
