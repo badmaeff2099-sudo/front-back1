@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { ArrowLeft, Target, BarChart2, CalendarDays, ListChecks, Plus, Trash2 } from "lucide-react"
+import { useState, useEffect, useRef, useCallback } from "react"
+import { ArrowLeft, Target, BarChart2, CalendarDays, ListChecks, Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react"
 import type { User as UserType } from "@/entities/user/model/types"
 
 /* ─── Planner types & helpers ───────────────────────────────── */
@@ -321,6 +321,268 @@ function PlannerSection({ currentUser }: { currentUser: UserType }) {
   )
 }
 
+/* ─── Goals 500 section ─────────────────────────────────────── */
+const MAX_GOALS = 10000
+
+interface GoalEntry {
+  /** Уникальный стабильный ID — не меняется при перемещении */
+  uid: number
+  /** Текст цели */
+  text: string
+  /** Выполнена? */
+  done: boolean
+}
+
+interface ContextMenu {
+  x: number
+  y: number
+  index: number
+}
+
+function Goals500Section({ currentUser }: { currentUser: UserType }) {
+  const storageKey = `goals500-${currentUser.id}`
+
+  const [goals, setGoals] = useState<GoalEntry[]>(() => {
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (raw) return JSON.parse(raw)
+    } catch {}
+    return Array.from({ length: 10 }, (_, i) => ({ uid: i + 1, text: "", done: false }))
+  })
+
+  const [nextUid, setNextUid] = useState<number>(() => {
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (raw) {
+        const arr: GoalEntry[] = JSON.parse(raw)
+        return arr.length > 0 ? Math.max(...arr.map((g) => g.uid)) + 1 : 11
+      }
+    } catch {}
+    return 11
+  })
+
+  const [menu, setMenu] = useState<ContextMenu | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  /* Сохранение */
+  const persist = useCallback((updated: GoalEntry[]) => {
+    setGoals(updated)
+    localStorage.setItem(storageKey, JSON.stringify(updated))
+  }, [storageKey])
+
+  /* Закрыть меню при клике вне */
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenu(null)
+      }
+    }
+    if (menu) {
+      document.addEventListener("mousedown", handler)
+    }
+    return () => document.removeEventListener("mousedown", handler)
+  }, [menu])
+
+  /* ПКМ по строке */
+  const handleContextMenu = (e: React.MouseEvent, index: number) => {
+    e.preventDefault()
+    setMenu({ x: e.clientX, y: e.clientY, index })
+  }
+
+  /* Переместить вверх (меняем позицию в массиве, не uid) */
+  const moveUp = (index: number) => {
+    if (index === 0) return
+    const next = [...goals]
+    ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
+    persist(next)
+    setMenu(null)
+  }
+
+  /* Переместить вниз */
+  const moveDown = (index: number) => {
+    if (index === goals.length - 1) return
+    const next = [...goals]
+    ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
+    persist(next)
+    setMenu(null)
+  }
+
+  /* Изменить текст */
+  const updateText = (uid: number, text: string) => {
+    persist(goals.map((g) => (g.uid === uid ? { ...g, text } : g)))
+  }
+
+  /* Переключить выполнение */
+  const toggleDone = (uid: number) => {
+    persist(goals.map((g) => (g.uid === uid ? { ...g, done: !g.done } : g)))
+  }
+
+  /* Добавить строку */
+  const addGoal = () => {
+    if (goals.length >= MAX_GOALS) return
+    const newGoal: GoalEntry = { uid: nextUid, text: "", done: false }
+    setNextUid((n) => n + 1)
+    persist([...goals, newGoal])
+  }
+
+  const doneCount = goals.filter((g) => g.done).length
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Мои 500 целей</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Правая кнопка мыши по строке — переместить вверх или вниз.
+            Выполнено: <span className="text-foreground font-medium">{doneCount}</span> / {goals.length}
+          </p>
+        </div>
+        {goals.length < MAX_GOALS && (
+          <span className="text-[10px] text-muted-foreground/50 tabular-nums">
+            {goals.length} / {MAX_GOALS}
+          </span>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="bg-[#111] border border-[#1e1e1e] rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#1e1e1e]">
+                <th className="w-12 px-3 py-2.5 text-[10px] text-muted-foreground uppercase tracking-wider text-center font-medium select-none">
+                  №
+                </th>
+                <th className="px-4 py-2.5 text-[10px] text-muted-foreground uppercase tracking-wider text-left font-medium">
+                  Цель
+                </th>
+                <th className="w-24 px-3 py-2.5 text-[10px] text-muted-foreground uppercase tracking-wider text-center font-medium select-none">
+                  Выполнено
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#161616]">
+              {goals.map((goal, idx) => (
+                <tr
+                  key={goal.uid}
+                  onContextMenu={(e) => handleContextMenu(e, idx)}
+                  className={`group transition-colors cursor-default select-none
+                    ${goal.done
+                      ? "bg-[#0d1a0d] hover:bg-[#0f1f0f]"
+                      : "hover:bg-[#161616]"
+                    }`}
+                >
+                  {/* Номер — фиксированный, не меняется при перемещении */}
+                  <td className="px-3 py-2 text-center text-xs text-muted-foreground/40 tabular-nums select-none w-12">
+                    {idx + 1}
+                  </td>
+
+                  {/* Цель */}
+                  <td className="px-2 py-1.5">
+                    <input
+                      value={goal.text}
+                      onChange={(e) => updateText(goal.uid, e.target.value)}
+                      placeholder="Введите цель..."
+                      onContextMenu={(e) => e.stopPropagation()}
+                      className={`w-full bg-transparent text-sm focus:outline-none px-2 py-1 rounded
+                        hover:bg-[#1a1a1a] focus:bg-[#1a1a1a] transition-colors cursor-text select-text
+                        placeholder:text-muted-foreground/25
+                        ${goal.done
+                          ? "text-muted-foreground/40 line-through"
+                          : "text-foreground"
+                        }`}
+                    />
+                  </td>
+
+                  {/* Чекбокс */}
+                  <td className="px-3 py-2 text-center w-24">
+                    <button
+                      onClick={() => toggleDone(goal.uid)}
+                      onContextMenu={(e) => e.stopPropagation()}
+                      aria-label={goal.done ? "Отметить не выполненной" : "Отметить выполненной"}
+                      className={`w-5 h-5 mx-auto flex items-center justify-center rounded border transition-all
+                        ${goal.done
+                          ? "bg-green-500/20 border-green-500/50 text-green-400"
+                          : "border-[#2e2e2e] text-transparent hover:border-[#444] hover:text-muted-foreground/30"
+                        }`}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 12 12"
+                        className="w-3 h-3"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="2,6 5,9 10,3" />
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Add button */}
+        <div className="border-t border-[#1e1e1e]">
+          {goals.length < MAX_GOALS ? (
+            <button
+              onClick={addGoal}
+              className="w-full flex items-center justify-center gap-2 py-3.5 text-xs text-muted-foreground hover:text-foreground hover:bg-[#161616] transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              Добавить цель
+            </button>
+          ) : (
+            <p className="text-center py-3 text-xs text-muted-foreground/40">
+              Достигнут лимит {MAX_GOALS.toLocaleString("ru")} целей
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Context menu (portal-like, fixed to viewport) */}
+      {menu && (
+        <div
+          ref={menuRef}
+          style={{ position: "fixed", top: menu.y, left: menu.x, zIndex: 9999 }}
+          className="bg-[#1a1a1a] border border-[#2e2e2e] rounded-lg shadow-2xl overflow-hidden min-w-[180px] py-1"
+        >
+          <div className="px-3 py-1.5 border-b border-[#252525] mb-1">
+            <p className="text-[10px] text-muted-foreground/50 uppercase tracking-wider">
+              Строка {menu.index + 1}
+            </p>
+          </div>
+          <button
+            disabled={menu.index === 0}
+            onClick={() => moveUp(menu.index)}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground/80
+              hover:bg-[#252525] hover:text-foreground transition-colors
+              disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          >
+            <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            Переместить вверх
+          </button>
+          <button
+            disabled={menu.index === goals.length - 1}
+            onClick={() => moveDown(menu.index)}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-foreground/80
+              hover:bg-[#252525] hover:text-foreground transition-colors
+              disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          >
+            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            Переместить вниз
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ComingSoon({ label }: { label: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 gap-3 bg-[#111] border border-[#1e1e1e] rounded-xl">
@@ -371,7 +633,7 @@ export default function CabinetPage({ currentUser, onBack }: CabinetPageProps) {
             {active === "goal"     && <GoalSection currentUser={currentUser} />}
             {active === "stats"    && <ComingSoon label="Моя статистика" />}
             {active === "planner"  && <PlannerSection currentUser={currentUser} />}
-            {active === "goals500" && <ComingSoon label="Мои 500 целей" />}
+            {active === "goals500" && <Goals500Section currentUser={currentUser} />}
           </div>
         </div>
       </div>
