@@ -204,7 +204,7 @@ function Profile({
 
             <div className="profile-stats">
               <p className="text-xs text-muted-foreground uppercase tracking-wider mb-4">
-                Статистика Тест релиза #3 проверка скриптов
+                Статистика Тест смены changelog
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="stat-card p-5">
