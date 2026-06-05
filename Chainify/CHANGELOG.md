@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.0](https://github.com/badmaeff2099-sudo/front-back1/compare/v1.1.0...v1.2.0) (2026-06-05)
+
+### Features
+
+* фикс релиза ([83ce194](https://github.com/badmaeff2099-sudo/front-back1/commit/83ce19495b1b50ed64d7194feddd36bc56675851))
+
 ## 1.1.0 (2026-06-05)
 
 ### Features
