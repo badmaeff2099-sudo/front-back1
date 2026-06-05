@@ -209,7 +209,7 @@ function Profile({
               <div className="grid grid-cols-2 gap-3">
                 <div className="stat-card p-5">
                   <p className="text-xs text-muted-foreground mb-1">
-                    Всего дней
+                    Всего дней прошло
                   </p>
                   <p className="text-2xl font-bold text-brand flex items-center gap-2">
                     <Trophy className="h-5 w-5" /> {stats.totalDays}
