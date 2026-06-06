@@ -1,4 +1,4 @@
-import { useState, useEffect, type CSSProperties } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
   User,
@@ -8,7 +8,6 @@ import {
   ArrowUpDown,
   Flame,
   Users,
-  Calendar,
   LayoutDashboard,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
@@ -27,70 +26,23 @@ import {
 } from "@/shared/ui/tooltip";
 import { getRank } from "@/entities/rank/model/ranks";
 import { UserAvatar } from "@/entities/user/ui/UserAvatar";
-import { getUsers, getFriends } from "@/shared/api/client";
-import { MarkDayButton } from "@/features/mark-day/ui/MarkDayButton";
+import { getUsers, getFriends, markDay } from "@/shared/api/client";
 import { FriendsPanel } from "@/features/friends/ui/FriendsPanel";
 import type { User as UserType } from "@/entities/user/model/types";
 
-const DAYS = 14;
 const PARTICIPANTS_PER_PAGE = 20;
+const CYCLE = 30; // квадратиков в столбце
 
-// Heatmap: 3 rows × N columns, last ~90 days
-function getHeatmapColumns(
-  completedDates: string[],
-  todayStr: string,
-): Array<Array<{ date: string; completed: boolean; future: boolean }>> {
-  const ROWS = 3;
-  const COLS = 30;
-  const total = ROWS * COLS;
-  const today = new Date(todayStr);
-  today.setHours(0, 0, 0, 0);
-  const days: Array<{ date: string; completed: boolean; future: boolean }> = [];
-  for (let i = total - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
-    days.push({
-      date: dateStr,
-      completed: completedDates.includes(dateStr),
-      future: false,
-    });
-  }
-  // Split into columns of ROWS
-  const cols: Array<
-    Array<{ date: string; completed: boolean; future: boolean }>
-  > = [];
-  for (let c = 0; c < COLS; c++) {
-    cols.push(days.slice(c * ROWS, c * ROWS + ROWS));
-  }
-  return cols;
-}
+/* ─── Helpers ─────────────────────────────────────────────────── */
 
-interface DashboardPageProps {
-  currentUser: UserType;
-  onShowProfile: () => void;
-  onShowLeaderboard: () => void;
-  onShowFriends: () => void;
-  onShowCabinet: () => void;
-  onSelectUser: (user: UserType) => void;
-  onLogout: () => void;
-}
-
-// Returns green color with intensity based on total days (0–365+)
-function getCompletedColor(totalDays: number): { bg: string; glow: string } {
-  const t = Math.min(totalDays / 120, 1);
-  const lightness = Math.round(25 + t * 20);
-  const sat = Math.round(60 + t * 30);
-  return {
-    bg: `hsl(142, ${sat}%, ${lightness}%)`,
-    glow: `0 0 ${4 + Math.round(t * 8)}px hsla(142, ${sat}%, ${lightness}%, ${0.3 + t * 0.4}), inset 0 1px 0 rgba(255,255,255,0.1)`,
-  };
+function todayISO(): string {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function getStreak(dates: string[]): number {
   if (!dates.length) return 0;
   const sorted = [...dates].sort().reverse();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayISO();
   let streak = 0;
   let cursor = today;
   for (const d of sorted) {
@@ -104,16 +56,245 @@ function getStreak(dates: string[]): number {
   return streak;
 }
 
-const HEATMAP_THRESHOLD = 21;
+/**
+ * Строим 30 слотов (позиции 0..29 снизу вверх, т.е. отображаем 29..0).
+ * Слот = один «оборот» из 30 дней.
+ * cycle = Math.floor(totalDone / 30) — номер текущего цикла.
+ * posInCycle = totalDone % 30 — сколько выполнено в текущем цикле (0..29).
+ * Слоты 0..posInCycle-1 = выполнены (зелёные).
+ * Слот posInCycle = сегодня (кнопка, если не отмечен — жёлтый, если отмечен — зелёный).
+ * Слоты до posInCycle (прошедшие в этом цикле, уже «прошли» без отметки) = красные.
+ *
+ * Нам важна не дата, а позиция в цикле и пропуски.
+ * Проще: берём 30 дат подряд назад, смотрим статус.
+ */
+interface SlotInfo {
+  /** порядковый номер слота снизу: 0 = самый нижний */
+  slotIdx: number;
+  date: string;
+  state: "done" | "missed" | "today" | "future";
+}
 
-function getLastNDays(n: number): string[] {
-  const days: string[] = []
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date()
-    d.setDate(d.getDate() - i)
-    days.push(d.toISOString().slice(0, 10))
+function buildSlots(completedDates: string[], today: string): SlotInfo[] {
+  // Берём последние 30 дней (включая сегодня)
+  const slots: SlotInfo[] = [];
+  for (let i = CYCLE - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toISOString().slice(0, 10);
+    const slotIdx = CYCLE - 1 - i; // 0=самый старый, 29=сегодня
+    let state: SlotInfo["state"];
+    if (dateStr === today) {
+      state = completedDates.includes(dateStr) ? "done" : "today";
+    } else if (completedDates.includes(dateStr)) {
+      state = "done";
+    } else {
+      state = "missed";
+    }
+    slots.push({ slotIdx, date: dateStr, state });
   }
-  return days
+  return slots; // slots[0] = 30 дней назад, slots[29] = сегодня
+}
+
+/* ─── Vertical column for one user ───────────────────────────── */
+
+interface UserColumnProps {
+  user: UserType;
+  isMe: boolean;
+  today: string;
+  onMarkDay?: () => void;
+  onSelectUser: (u: UserType) => void;
+}
+
+function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnProps) {
+  const streak = getStreak(user.completed_dates);
+  const total = user.completed_dates.length;
+  const rank = getRank(total);
+  const slots = buildSlots(user.completed_dates, today);
+  const todayMarked = user.completed_dates.includes(today);
+  const [marking, setMarking] = useState(false);
+
+  const handleMark = async () => {
+    if (!isMe || todayMarked || marking) return;
+    setMarking(true);
+    try {
+      const res = await markDay(user.id, today);
+      if (res.success) {
+        onMarkDay?.();
+        toast.success("День отмечен! 🎉");
+      } else if (res.error === "Already marked for this date") {
+        toast.warning("Сегодня уже отмечено!");
+        onMarkDay?.();
+      } else {
+        toast.error(res.error || "Ошибка");
+      }
+    } catch {
+      toast.error("Ошибка соединения");
+    } finally {
+      setMarking(false);
+    }
+  };
+
+  return (
+    <div
+      className={`flex flex-col items-center gap-2 select-none ${
+        isMe
+          ? "ring-2 ring-brand/40 rounded-xl bg-brand/5 px-2 py-3"
+          : "px-2 py-3"
+      }`}
+      style={{ minWidth: 64 }}
+    >
+      {/* Avatar + name */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => onSelectUser(user)}
+            className="flex flex-col items-center gap-1.5 group"
+          >
+            <UserAvatar
+              avatarUrl={user.avatar_url}
+              username={user.username}
+              size={36}
+            />
+            <span
+              className={`text-[11px] font-semibold truncate max-w-[56px] text-center leading-tight ${
+                isMe ? "text-brand" : "text-foreground group-hover:text-primary"
+              }`}
+            >
+              {user.username}
+            </span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>
+            {rank.icon} {rank.title}
+            {isMe ? " · Вы" : ""}
+          </p>
+        </TooltipContent>
+      </Tooltip>
+
+      {/* Streak */}
+      <div className="flex items-center gap-1">
+        {streak > 0 ? (
+          <>
+            <Flame className="h-3 w-3 text-orange-400 shrink-0" />
+            <span className="text-[11px] font-bold text-orange-400 tabular-nums">
+              {streak}
+            </span>
+          </>
+        ) : (
+          <span className="text-[10px] text-muted-foreground/30 tabular-nums">—</span>
+        )}
+      </div>
+
+      {/* 30 squares — rendered top to bottom (slot 29 on top, slot 0 on bottom) */}
+      <div className="flex flex-col gap-[3px]">
+        {[...slots].reverse().map((slot) => {
+          const isToday = slot.state === "today";
+          const isDone = slot.state === "done";
+          const isMissed = slot.state === "missed";
+
+          let bg = "#1e1e1e";
+          let border = "1px solid #2a2a2a";
+          let shadow = "none";
+          let cursor = "default";
+          let title = slot.date;
+
+          if (isDone) {
+            bg = "#166534"; // green-800
+            border = "1px solid #15803d";
+            shadow = "0 0 6px rgba(34,197,94,0.35)";
+            title = `✓ ${slot.date}`;
+          } else if (isMissed) {
+            bg = "#3b0f0f";
+            border = "1px solid #7f1d1d";
+            title = `✗ ${slot.date}`;
+          } else if (isToday && isMe) {
+            bg = todayMarked ? "#166534" : "#3d2e00";
+            border = todayMarked ? "1px solid #15803d" : "1.5px solid #faad14";
+            shadow = todayMarked
+              ? "0 0 6px rgba(34,197,94,0.35)"
+              : "0 0 8px rgba(250,173,20,0.4)";
+            cursor = todayMarked ? "default" : "pointer";
+            title = todayMarked ? `✓ Сегодня` : "Нажмите чтобы отметить";
+          } else if (isToday && !isMe) {
+            bg = todayMarked ? "#166534" : "#3d2e00";
+            border = todayMarked ? "1px solid #15803d" : "1.5px solid #faad14";
+            shadow = todayMarked ? "0 0 6px rgba(34,197,94,0.35)" : "0 0 6px rgba(250,173,20,0.3)";
+            title = todayMarked ? `✓ Сегодня` : "Сегодня";
+          }
+
+          if (isToday && isMe && !todayMarked) {
+            return (
+              <Tooltip key={slot.date}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={handleMark}
+                    disabled={marking}
+                    style={{
+                      width: 36,
+                      height: 20,
+                      borderRadius: 5,
+                      backgroundColor: bg,
+                      border,
+                      boxShadow: shadow,
+                      cursor,
+                      transition: "all 0.15s",
+                      flexShrink: 0,
+                      animation: "pulse-border 2s ease-in-out infinite",
+                    }}
+                    aria-label="Отметить сегодня"
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{title}</p>
+                </TooltipContent>
+              </Tooltip>
+            );
+          }
+
+          return (
+            <Tooltip key={slot.date}>
+              <TooltipTrigger asChild>
+                <div
+                  style={{
+                    width: 36,
+                    height: 20,
+                    borderRadius: 5,
+                    backgroundColor: bg,
+                    border,
+                    boxShadow: shadow,
+                    transition: "all 0.15s",
+                    flexShrink: 0,
+                  }}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{title}</p>
+              </TooltipContent>
+            </Tooltip>
+          );
+        })}
+      </div>
+
+      {/* Total days */}
+      <span className="text-[10px] text-muted-foreground/40 tabular-nums mt-0.5">
+        {total}д
+      </span>
+    </div>
+  );
+}
+
+/* ─── DashboardPage ───────────────────────────────────────────── */
+
+interface DashboardPageProps {
+  currentUser: UserType;
+  onShowProfile: () => void;
+  onShowLeaderboard: () => void;
+  onShowFriends: () => void;
+  onShowCabinet: () => void;
+  onSelectUser: (user: UserType) => void;
+  onLogout: () => void;
 }
 
 export default function DashboardPage({
@@ -134,7 +315,8 @@ export default function DashboardPage({
   const [currentPage, setCurrentPage] = useState(1);
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const today = todayISO();
 
   const loadParticipants = async (location: string) => {
     setLoading(true);
@@ -180,11 +362,11 @@ export default function DashboardPage({
     loadParticipants(val);
   };
 
-  const handleMarkDay = (today: string) => {
+  const handleMarkDay = () => {
     setParticipants((prev) =>
       prev.map((p) =>
         p.id === currentUser.id
-          ? { ...p, completed_dates: [...p.completed_dates, today] }
+          ? { ...p, completed_dates: [...(p.completed_dates ?? []), today] }
           : p,
       ),
     );
@@ -193,9 +375,8 @@ export default function DashboardPage({
   const myEntry = participants.find(
     (p) => Number(p.id) === Number(currentUser.id),
   );
-  const todayMarked = myEntry?.completed_dates.includes(today) ?? false;
 
-  // In friends mode: show only friends (not self); in all mode: show everyone except self
+  // Others list
   const othersBase = (() => {
     const list =
       viewMode === "friends"
@@ -206,9 +387,10 @@ export default function DashboardPage({
 
   const sortedOthers = [...othersBase].sort((a, b) =>
     sortDir === "desc"
-      ? b.completed_dates.length - a.completed_dates.length
-      : a.completed_dates.length - b.completed_dates.length,
+      ? getStreak(b.completed_dates) - getStreak(a.completed_dates)
+      : getStreak(a.completed_dates) - getStreak(b.completed_dates),
   );
+
   const paginated = sortedOthers.slice(
     (currentPage - 1) * PARTICIPANTS_PER_PAGE,
     currentPage * PARTICIPANTS_PER_PAGE,
@@ -217,6 +399,13 @@ export default function DashboardPage({
 
   return (
     <TooltipProvider>
+      <style>{`
+        @keyframes pulse-border {
+          0%, 100% { box-shadow: 0 0 6px rgba(250,173,20,0.3); }
+          50% { box-shadow: 0 0 14px rgba(250,173,20,0.7); }
+        }
+      `}</style>
+
       <div className="app-layout">
         {/* Header */}
         <header className="app-header">
@@ -238,10 +427,7 @@ export default function DashboardPage({
                     <SelectValue placeholder="Все локации" />
                   </SelectTrigger>
                   <SelectContent className="bg-[#1a1a1a] border-[#252525]">
-                    <SelectItem
-                      value="__all__"
-                      className="text-muted-foreground"
-                    >
+                    <SelectItem value="__all__" className="text-muted-foreground">
                       Все локации
                     </SelectItem>
                     {locations.map((l) => (
@@ -286,9 +472,10 @@ export default function DashboardPage({
                       {currentUser.username}
                     </h3>
                     {currentUser.nickname && (
-                      <p className="text-xs text-muted-foreground -mt-2">@{currentUser.nickname}</p>
+                      <p className="text-xs text-muted-foreground -mt-2">
+                        @{currentUser.nickname}
+                      </p>
                     )}
-
                     <div className="relative">
                       <button
                         onClick={onShowProfile}
@@ -301,13 +488,6 @@ export default function DashboardPage({
                         />
                       </button>
                     </div>
-
-                    {/* Mark today button */}
-                    <MarkDayButton
-                      currentUser={currentUser}
-                      todayMarked={todayMarked}
-                      onMarked={() => handleMarkDay(today)}
-                    />
 
                     <Button
                       variant="outline"
@@ -337,7 +517,6 @@ export default function DashboardPage({
                       </div>
                     )}
 
-                    {/* bio */}
                     {currentUser.bio && (
                       <div className="w-full border-t border-[#1e1e1e] pt-3">
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-1.5">
@@ -360,17 +539,15 @@ export default function DashboardPage({
                       </div>
                     )}
 
-                    {/* stats */}
                     {(() => {
                       const total = myEntry?.completed_dates.length ?? 0;
-                      const streak = myEntry
-                        ? getStreak(myEntry.completed_dates)
-                        : 0;
+                      const streak = myEntry ? getStreak(myEntry.completed_dates) : 0;
                       const joinDate = currentUser.created_at
-                        ? new Date(currentUser.created_at).toLocaleDateString(
-                            "ru-RU",
-                            { day: "numeric", month: "short", year: "numeric" },
-                          )
+                        ? new Date(currentUser.created_at).toLocaleDateString("ru-RU", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })
                         : null;
                       return (
                         <div className="w-full border-t border-[#1e1e1e] pt-3 flex flex-col gap-2">
@@ -378,29 +555,20 @@ export default function DashboardPage({
                             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                               <Trophy className="h-3 w-3" /> Всего дней
                             </span>
-                            <span className="text-xs font-bold text-foreground">
-                              {total}
-                            </span>
+                            <span className="text-xs font-bold text-foreground">{total}</span>
                           </div>
                           {streak > 0 && (
                             <div className="flex items-center justify-between">
                               <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <Flame className="h-3 w-3 text-orange-400" />{" "}
-                                Серия
+                                <Flame className="h-3 w-3 text-orange-400" /> Серия
                               </span>
-                              <span className="text-xs font-bold text-orange-400">
-                                {streak}д
-                              </span>
+                              <span className="text-xs font-bold text-orange-400">{streak}д</span>
                             </div>
                           )}
                           {joinDate && (
                             <div className="flex items-center justify-between">
-                              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <Calendar className="h-3 w-3" /> С нами с
-                              </span>
-                              <span className="text-xs text-foreground">
-                                {joinDate}
-                              </span>
+                              <span className="text-xs text-muted-foreground">С нами с</span>
+                              <span className="text-xs text-foreground">{joinDate}</span>
                             </div>
                           )}
                         </div>
@@ -415,26 +583,18 @@ export default function DashboardPage({
                 />
               </div>
 
-              {/* Right panel */}
+              {/* Right panel — horizontal scroll, columns */}
               <div className="right-panel">
-                <div className="progress-card">
+                <div className="progress-card overflow-hidden">
                   {loading ? (
-                    <div className="flex flex-col gap-3 p-6">
+                    <div className="flex gap-4 p-6 animate-pulse">
                       {[...Array(6)].map((_, i) => (
-                        <div
-                          key={i}
-                          className="flex items-center gap-4 animate-pulse"
-                        >
-                          <div className="w-28 h-4 rounded bg-[#2a2a2a]" />
-                          <div className="flex gap-1 flex-1">
-                            {[...Array(DAYS)].map((_, j) => (
-                              <div
-                                key={j}
-                                className="flex-1 h-7 rounded bg-[#1e1e1e]"
-                              />
-                            ))}
-                          </div>
-                          <div className="w-12 h-4 rounded bg-[#2a2a2a]" />
+                        <div key={i} className="flex flex-col items-center gap-2">
+                          <div className="w-9 h-9 rounded-full bg-[#2a2a2a]" />
+                          <div className="w-8 h-3 rounded bg-[#222]" />
+                          {[...Array(CYCLE)].map((_, j) => (
+                            <div key={j} className="w-9 h-5 rounded bg-[#1e1e1e]" />
+                          ))}
                         </div>
                       ))}
                     </div>
@@ -443,551 +603,106 @@ export default function DashboardPage({
                       <div className="w-14 h-14 rounded-full bg-[#1a1a1a] flex items-center justify-center">
                         <User className="h-7 w-7 text-muted-foreground" />
                       </div>
-                      <p className="text-sm font-semibold text-foreground">
-                        Пока никого нет
-                      </p>
+                      <p className="text-sm font-semibold text-foreground">Пока никого нет</p>
                       <p className="text-xs text-muted-foreground">
                         Станьте первым участником в этой локации
                       </p>
                     </div>
                   ) : (
                     <>
-                      {/* Header row */}
-                      <div className="flex items-center gap-4 px-6 pt-4 pb-3 border-b border-[#1a1a1a]">
-                        <span className="text-xs text-muted-foreground w-36 shrink-0">
-                          Участник
-                        </span>
-                        <div className="flex gap-1 flex-1 items-center">
-                          {/* view mode toggle */}
-                          <div className="flex items-center gap-1 mr-2">
-                            <button
-                              onClick={() => {
-                                setViewMode("all");
-                                setCurrentPage(1);
-                              }}
-                              className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${viewMode === "all" ? "bg-brand/20 text-brand" : "text-muted-foreground hover:text-foreground"}`}
-                            >
-                              Все
-                            </button>
-                            <button
-                              onClick={() => {
-                                setViewMode("friends");
-                                setCurrentPage(1);
-                              }}
-                              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${viewMode === "friends" ? "bg-brand/20 text-brand" : "text-muted-foreground hover:text-foreground"}`}
-                            >
-                              <Users className="h-2.5 w-2.5" /> Друзья
-                            </button>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 w-20 justify-end shrink-0">
+                      {/* Controls row */}
+                      <div className="flex items-center gap-3 px-4 pt-4 pb-3 border-b border-[#1a1a1a]">
+                        {/* view toggle */}
+                        <div className="flex items-center gap-1">
                           <button
-                            onClick={() => {
-                              setSortDir((d) =>
-                                d === "desc" ? "asc" : "desc",
-                              );
-                              setCurrentPage(1);
-                            }}
-                            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={() => { setViewMode("all"); setCurrentPage(1); }}
+                            className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${viewMode === "all" ? "bg-brand/20 text-brand" : "text-muted-foreground hover:text-foreground"}`}
                           >
-                            <ArrowUpDown className="h-3 w-3" />
-                            Стрик
+                            Все
+                          </button>
+                          <button
+                            onClick={() => { setViewMode("friends"); setCurrentPage(1); }}
+                            className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${viewMode === "friends" ? "bg-brand/20 text-brand" : "text-muted-foreground hover:text-foreground"}`}
+                          >
+                            <Users className="h-2.5 w-2.5" /> Друзья
                           </button>
                         </div>
+                        <button
+                          onClick={() => { setSortDir((d) => d === "desc" ? "asc" : "desc"); setCurrentPage(1); }}
+                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors ml-auto"
+                        >
+                          <ArrowUpDown className="h-3 w-3" />
+                          По стрику
+                        </button>
                       </div>
 
-                      {/* Participant rows */}
-                      <div className="flex flex-col divide-y divide-[#141414]">
-                        {/* Pinned: current user row */}
-                        {myEntry &&
-                          (() => {
-                            const rank = getRank(
-                              myEntry.completed_dates.length,
-                            );
-                            const streak = getStreak(myEntry.completed_dates);
-                            const total = myEntry.completed_dates.length;
-                            const { bg, glow } = getCompletedColor(total);
-                            return (
-                              <div
-                                className="flex items-center gap-4 px-6 py-3 bg-brand/8 border-b-2 border-brand/20 sticky top-0 z-10"
-                                style={{
-                                  background:
-                                    "linear-gradient(90deg, rgba(var(--brand-rgb),0.10) 0%, rgba(var(--brand-rgb),0.04) 100%)",
-                                }}
-                              >
-                                <div className="flex items-center gap-2.5 w-36 shrink-0 min-w-0">
-                                  <span className="text-[10px] text-brand/50 w-4 text-right shrink-0">
-                                    ★
-                                  </span>
-                                  <Tooltip>
-                                    <TooltipTrigger>
-                                      <button
-                                        onClick={() => onSelectUser(myEntry)}
-                                        className="flex items-center gap-1.5 text-xs font-bold truncate text-brand hover:text-brand/80 transition-colors text-left"
-                                      >
-                                        <UserAvatar
-                                          avatarUrl={myEntry.avatar_url}
-                                          username={myEntry.username}
-                                          size={28}
-                                        />
-                                        {myEntry.username}
-                                      </button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>
-                                        {rank.icon} {rank.title} · Вы
-                                      </p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </div>
-                                {total > HEATMAP_THRESHOLD ? (
-                                  <div className="flex gap-0.5 flex-1 overflow-hidden">
-                                    {getHeatmapColumns(
-                                      myEntry.completed_dates,
-                                      today,
-                                    ).map((week, wi) => (
-                                      <div
-                                        key={wi}
-                                        className="flex flex-col gap-0.5"
-                                      >
-                                        {week.map((cell) => {
-                                          const isToday = cell.date === today;
-                                          let bg2 = "#161616";
-                                          let border = "1px solid #222";
-                                          let shadow = "none";
-                                          if (cell.completed) {
-                                            bg2 = bg;
-                                            border = "none";
-                                            shadow = glow;
-                                          } else if (isToday) {
-                                            bg2 = "#3d2e00";
-                                            border = "1.5px solid #faad14";
-                                          } else if (
-                                            !cell.future &&
-                                            cell.date < today
-                                          ) {
-                                            bg2 = "#1a1212";
-                                            border = "1px solid #2a1818";
-                                          }
-                                          return (
-                                            <Tooltip key={cell.date}>
-                                              <TooltipTrigger>
-                                                <div
-                                                  style={{
-                                                    width: 16,
-                                                    height: 16,
-                                                    borderRadius: 4,
-                                                    backgroundColor: bg2,
-                                                    border,
-                                                    boxShadow: shadow,
-                                                    transition: "all 0.15s",
-                                                    flexShrink: 0,
-                                                  }}
-                                                />
-                                              </TooltipTrigger>
-                                              <TooltipContent>
-                                                <p>
-                                                  {cell.completed
-                                                    ? "✓"
-                                                    : isToday
-                                                      ? "Сегодня"
-                                                      : cell.future
-                                                        ? "—"
-                                                        : "✗"}{" "}
-                                                  · {cell.date}
-                                                </p>
-                                              </TooltipContent>
-                                            </Tooltip>
-                                          );
-                                        })}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="flex gap-1 flex-1">
-                                    {getLastNDays(HEATMAP_THRESHOLD).map((d: string) => {
-                                      const isCompleted = myEntry.completed_dates.includes(d);
-                                      const isPast = d < today;
-                                      const isToday = d === today;
-                                      let style: CSSProperties = {
-                                        borderRadius: 6,
-                                        transition: "all 0.2s",
-                                      };
-                                      if (isCompleted) {
-                                        style.backgroundColor = bg;
-                                        style.boxShadow = glow;
-                                      } else if (isToday) {
-                                        style.backgroundColor = "#3d2e00";
-                                        style.border = "1.5px solid #faad14";
-                                        style.boxShadow =
-                                          "0 0 6px rgba(250,173,20,0.25)";
-                                      } else if (isPast) {
-                                        style.backgroundColor = "#1f1010";
-                                        style.border = "1px solid #2d1515";
-                                      } else {
-                                        style.backgroundColor = "#161616";
-                                        style.border = "1px solid #222";
-                                      }
-                                      return (
-                                        <Tooltip key={d}>
-                                          <TooltipTrigger>
-                                            <div
-                                              style={style}
-                                              className="flex-1 min-w-[28px] h-8 flex items-center justify-center"
-                                            >
-                                              {isCompleted && (
-                                                <svg
-                                                  width="10"
-                                                  height="8"
-                                                  viewBox="0 0 9 7"
-                                                  fill="none"
-                                                >
-                                                  <path
-                                                    d="M1 3.5L3.5 6L8 1"
-                                                    stroke="rgba(255,255,255,0.9)"
-                                                    strokeWidth="1.5"
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                  />
-                                                </svg>
-                                              )}
-                                              {isPast && !isCompleted && (
-                                                <svg
-                                                  width="8"
-                                                  height="8"
-                                                  viewBox="0 0 7 7"
-                                                  fill="none"
-                                                >
-                                                  <path
-                                                    d="M1 1L6 6M6 1L1 6"
-                                                    stroke="#4a2020"
-                                                    strokeWidth="1.5"
-                                                    strokeLinecap="round"
-                                                  />
-                                                </svg>
-                                              )}
-                                              {isToday && !isCompleted && (
-                                                <svg
-                                                  width="9"
-                                                  height="9"
-                                                  viewBox="0 0 8 8"
-                                                  fill="none"
-                                                >
-                                                  <circle
-                                                    cx="4"
-                                                    cy="4"
-                                                    r="3"
-                                                    stroke="#faad14"
-                                                    strokeWidth="1.5"
-                                                  />
-                                                  <circle
-                                                    cx="4"
-                                                    cy="4"
-                                                    r="1"
-                                                    fill="#faad14"
-                                                  />
-                                                </svg>
-                                              )}
-                                            </div>
-                                          </TooltipTrigger>
-                                          <TooltipContent>
-                                            <p>
-                                              {isCompleted
-                                                ? "✓ Выполнено"
-                                                : isPast
-                                                  ? "✗ Пропущено"
-                                                  : isToday
-                                                    ? "Сегодня"
-                                                    : "—"}{" "}
-                                              · {d}
-                                            </p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                                <div className="flex flex-col items-end justify-center gap-0.5 w-24 shrink-0">
-                                  <div className="flex items-center gap-1">
-                                    {streak > 0 && (
-                                      <Flame className="h-3.5 w-3.5 text-orange-400 shrink-0" />
-                                    )}
-                                    <span
-                                      className={`text-xs font-bold tabular-nums ${streak > 0 ? "text-orange-400" : "text-muted-foreground/40"}`}
-                                    >
-                                      {streak > 0 ? `${streak}д` : "—"}
-                                    </span>
-                                  </div>
-                                  {total > 0 && (
-                                    <div className="w-full">
-                                      <div className="flex justify-between mb-0.5">
-                                        <span className="text-[10px] text-muted-foreground/50 tabular-nums">
-                                          {total}д
-                                        </span>
-                                      </div>
-                                      <div className="w-full h-1 rounded-full bg-[#222] overflow-hidden">
-                                        <div
-                                          className="h-full rounded-full transition-all"
-                                          style={{
-                                            width: `${Math.min((total / 365) * 100, 100)}%`,
-                                            backgroundColor: bg,
-                                          }}
-                                        />
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })()}
-
-                        {/* Other participants */}
-                        {paginated.map((participant, index) => {
-                          const rank = getRank(
-                            participant.completed_dates.length,
-                          );
-                          const globalIndex =
-                            (currentPage - 1) * PARTICIPANTS_PER_PAGE +
-                            index +
-                            1;
-                          const streak = getStreak(participant.completed_dates);
-                          const total = participant.completed_dates.length;
-                          const { bg, glow } = getCompletedColor(total);
-
-                          return (
-                            <div
-                              key={participant.id}
-                              className="flex items-center gap-4 px-6 py-3 transition-colors hover:bg-[#141414]"
-                            >
-                              {/* Name */}
-                              <div className="flex items-center gap-2.5 w-36 shrink-0 min-w-0">
-                                <span className="text-[10px] text-muted-foreground/50 w-4 text-right shrink-0">
-                                  {globalIndex}
-                                </span>
-                                <Tooltip>
-                                  <TooltipTrigger>
-                                    <button
-                                      onClick={() => onSelectUser(participant)}
-                                      className="flex items-center gap-1.5 text-xs font-medium truncate text-foreground hover:text-primary transition-colors text-left"
-                                    >
-                                      <UserAvatar
-                                        avatarUrl={participant.avatar_url}
-                                        username={participant.username}
-                                        size={28}
-                                      />
-                                      {participant.username}
-                                    </button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>
-                                      {rank.icon} {rank.title}
-                                    </p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-
-                              {total > HEATMAP_THRESHOLD ? (
-                                <div className="flex gap-0.5 flex-1 overflow-hidden">
-                                  {getHeatmapColumns(
-                                    participant.completed_dates,
-                                    today,
-                                  ).map((week, wi) => (
-                                    <div
-                                      key={wi}
-                                      className="flex flex-col gap-0.5"
-                                    >
-                                      {week.map((cell) => {
-                                        const isToday2 = cell.date === today;
-                                        let bg2 = "#161616";
-                                        let border = "1px solid #222";
-                                        let shadow = "none";
-                                        if (cell.completed) {
-                                          bg2 = bg;
-                                          border = "none";
-                                          shadow = glow;
-                                        } else if (isToday2) {
-                                          bg2 = "#3d2e00";
-                                          border = "1.5px solid #faad14";
-                                        } else if (
-                                          !cell.future &&
-                                          cell.date < today
-                                        ) {
-                                          bg2 = "#1a1212";
-                                          border = "1px solid #2a1818";
-                                        }
-                                        return (
-                                          <Tooltip key={cell.date}>
-                                            <TooltipTrigger>
-                                              <div
-                                                style={{
-                                                  width: 16,
-                                                  height: 16,
-                                                  borderRadius: 4,
-                                                  backgroundColor: bg2,
-                                                  border,
-                                                  boxShadow: shadow,
-                                                  transition: "all 0.15s",
-                                                  flexShrink: 0,
-                                                }}
-                                              />
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <p>
-                                                {cell.completed
-                                                  ? "✓"
-                                                  : isToday2
-                                                    ? "Сегодня"
-                                                    : cell.future
-                                                      ? "—"
-                                                      : "✗"}{" "}
-                                                · {cell.date}
-                                              </p>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        );
-                                      })}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="flex gap-1 flex-1">
-                                  {getLastNDays(HEATMAP_THRESHOLD).map((d: string) => {
-                                    const isCompleted = participant.completed_dates.includes(d);
-                                    const isPast = d < today;
-                                    const isToday = d === today;
-                                    let style: CSSProperties = {
-                                      borderRadius: 6,
-                                      transition: "all 0.2s",
-                                    };
-                                    if (isCompleted) {
-                                      style.backgroundColor = bg;
-                                      style.boxShadow = glow;
-                                    } else if (isToday) {
-                                      style.backgroundColor = "#3d2e00";
-                                      style.border = "1.5px solid #faad14";
-                                      style.boxShadow =
-                                        "0 0 6px rgba(250,173,20,0.25)";
-                                    } else if (isPast) {
-                                      style.backgroundColor = "#1f1010";
-                                      style.border = "1px solid #2d1515";
-                                    } else {
-                                      style.backgroundColor = "#161616";
-                                      style.border = "1px solid #222";
-                                    }
-                                    return (
-                                      <Tooltip key={d}>
-                                        <TooltipTrigger>
-                                          <div
-                                            style={style}
-                                            className="flex-1 min-w-[28px] h-8 flex items-center justify-center"
-                                          >
-                                            {isCompleted && (
-                                              <svg
-                                                width="10"
-                                                height="8"
-                                                viewBox="0 0 9 7"
-                                                fill="none"
-                                              >
-                                                <path
-                                                  d="M1 3.5L3.5 6L8 1"
-                                                  stroke="rgba(255,255,255,0.9)"
-                                                  strokeWidth="1.5"
-                                                  strokeLinecap="round"
-                                                  strokeLinejoin="round"
-                                                />
-                                              </svg>
-                                            )}
-                                            {isPast && !isCompleted && (
-                                              <svg
-                                                width="8"
-                                                height="8"
-                                                viewBox="0 0 7 7"
-                                                fill="none"
-                                              >
-                                                <path
-                                                  d="M1 1L6 6M6 1L1 6"
-                                                  stroke="#4a2020"
-                                                  strokeWidth="1.5"
-                                                  strokeLinecap="round"
-                                                />
-                                              </svg>
-                                            )}
-                                            {isToday && !isCompleted && (
-                                              <svg
-                                                width="9"
-                                                height="9"
-                                                viewBox="0 0 8 8"
-                                                fill="none"
-                                              >
-                                                <circle
-                                                  cx="4"
-                                                  cy="4"
-                                                  r="3"
-                                                  stroke="#faad14"
-                                                  strokeWidth="1.5"
-                                                />
-                                                <circle
-                                                  cx="4"
-                                                  cy="4"
-                                                  r="1"
-                                                  fill="#faad14"
-                                                />
-                                              </svg>
-                                            )}
-                                          </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                          <p>
-                                            {isCompleted
-                                              ? "✓ Выполнено"
-                                              : isPast
-                                                ? "✗ Пропущено"
-                                                : isToday
-                                                  ? "Сегодня"
-                                                  : "—"}{" "}
-                                            · {d}
-                                          </p>
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                              <div className="flex flex-col items-end justify-center gap-0.5 w-24 shrink-0">
-                                <div className="flex items-center gap-1">
-                                  {streak > 0 && (
-                                    <Flame className="h-3.5 w-3.5 text-orange-400 shrink-0" />
-                                  )}
-                                  <span
-                                    className={`text-xs font-bold tabular-nums ${streak > 0 ? "text-orange-400" : "text-muted-foreground/40"}`}
-                                  >
-                                    {streak > 0 ? `${streak}д` : "—"}
-                                  </span>
-                                </div>
-                                {total > 0 && (
-                                  <div className="w-full">
-                                    <div className="flex items-center justify-between mb-0.5">
-                                      <span className="text-[10px] text-muted-foreground/50 tabular-nums">
-                                        {total}д
-                                      </span>
-                                    </div>
-                                    <div className="w-full h-1 rounded-full bg-[#222] overflow-hidden mt-0.5">
-                                      <div
-                                        className="h-full rounded-full transition-all"
-                                        style={{
-                                          width: `${Math.min((total / 365) * 100, 100)}%`,
-                                          backgroundColor: bg,
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
+                      {/* Columns area: sticky me + scrollable others */}
+                      <div className="flex overflow-hidden" style={{ minHeight: 0 }}>
+                        {/* Sticky: current user column */}
+                        {myEntry && (
+                          <div
+                            className="shrink-0 border-r border-brand/20 bg-[#0d0d0d]"
+                            style={{ zIndex: 10 }}
+                          >
+                            <div className="py-4 px-1">
+                              <UserColumn
+                                user={myEntry}
+                                isMe={true}
+                                today={today}
+                                onMarkDay={handleMarkDay}
+                                onSelectUser={onSelectUser}
+                              />
                             </div>
-                          );
-                        })}
+                          </div>
+                        )}
+
+                        {/* Scrollable: others */}
+                        <div
+                          ref={scrollRef}
+                          className="flex overflow-x-auto gap-1 px-3 py-4"
+                          style={{ scrollbarWidth: "thin" }}
+                        >
+                          {paginated.map((participant) => (
+                            <UserColumn
+                              key={participant.id}
+                              user={participant}
+                              isMe={false}
+                              today={today}
+                              onSelectUser={onSelectUser}
+                            />
+                          ))}
+                          {paginated.length === 0 && (
+                            <div className="flex items-center justify-center py-12 px-8 text-xs text-muted-foreground/50">
+                              Нет участников
+                            </div>
+                          )}
+                        </div>
                       </div>
 
+                      {/* Legend */}
+                      <div className="flex items-center gap-4 px-4 py-2 border-t border-[#1a1a1a] bg-[#0a0a0a]">
+                        <span className="text-[10px] text-muted-foreground/40 uppercase tracking-wider mr-1">
+                          Легенда:
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-3 rounded-[3px]" style={{ backgroundColor: "#166534", border: "1px solid #15803d" }} />
+                          <span className="text-[10px] text-muted-foreground/60">Выполнено</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-3 rounded-[3px]" style={{ backgroundColor: "#3b0f0f", border: "1px solid #7f1d1d" }} />
+                          <span className="text-[10px] text-muted-foreground/60">Пропущено</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-3 rounded-[3px]" style={{ backgroundColor: "#3d2e00", border: "1.5px solid #faad14" }} />
+                          <span className="text-[10px] text-muted-foreground/60">Сегодня</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-4 h-3 rounded-[3px]" style={{ backgroundColor: "#1e1e1e", border: "1px solid #2a2a2a" }} />
+                          <span className="text-[10px] text-muted-foreground/60">Не началось</span>
+                        </div>
+                      </div>
+
+                      {/* Pagination */}
                       {totalPages > 1 && (
                         <div className="flex items-center justify-center gap-3 py-4 border-t border-[#1a1a1a]">
                           <Button
