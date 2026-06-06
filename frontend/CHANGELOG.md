@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.1](https://github.com/badmaeff2099-sudo/front-back1/compare/v1.2.0...v1.2.1) (2026-06-05)
+
+### Features
+
+* changelog test ([2f08f04](https://github.com/badmaeff2099-sudo/front-back1/commit/2f08f04a9c510e40a742aa28654088b77062038c))
+
 ## [1.2.0](https://github.com/badmaeff2099-sudo/front-back1/compare/v1.1.0...v1.2.0) (2026-06-05)
 
 ### Features
