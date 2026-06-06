@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.2](https://github.com/badmaeff2099-sudo/front-back1/compare/v1.2.1...v1.2.2) (2026-06-06)
+
+### Features
+
+* новый релиз после новой архитектры ([3b112c5](https://github.com/badmaeff2099-sudo/front-back1/commit/3b112c598bed7a606e4525b01e57baae2dd9d787))
+
 ## [1.2.1](https://github.com/badmaeff2099-sudo/front-back1/compare/v1.2.0...v1.2.1) (2026-06-05)
 
 ### Features
