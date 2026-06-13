@@ -57,43 +57,66 @@ function getStreak(dates: string[]): number {
 }
 
 /**
- * Строим 30 слотов (позиции 0..29 снизу вверх, т.е. отображаем 29..0).
- * Слот = один «оборот» из 30 дней.
- * cycle = Math.floor(totalDone / 30) — номер текущего цикла.
- * posInCycle = totalDone % 30 — сколько выполнено в текущем цикле (0..29).
- * Слоты 0..posInCycle-1 = выполнены (зелёные).
- * Слот posInCycle = сегодня (кнопка, если не отмечен — жёлтый, если отмечен — зелёный).
- * Слоты до posInCycle (прошедшие в этом цикле, уже «прошли» без отметки) = красные.
+ * Строим 30 слотов текущего цикла, отсчитывая от даты регистрации.
  *
- * Нам важна не дата, а позиция в цикле и пропуски.
- * Проще: берём 30 дат подряд назад, смотрим статус.
+ * Логика:
+ * - День 1 = дата регистрации (registeredAt), день 2 = +1 день и т.д.
+ * - Цикл 1 = дни 1..30, цикл 2 = дни 31..60 и т.д.
+ * - Определяем текущий цикл по тому, в каком диапазоне находится сегодня.
+ * - Отображаем 30 слотов текущего цикла: слот 0 = самый нижний (первый день цикла).
+ * - Слоты заполняются снизу вверх: пришёл день — закрасили снизу.
+ * - Состояния: done (зелёный), missed (красный), today (жёлтый/зелёный), future (серый).
  */
 interface SlotInfo {
-  /** порядковый номер слота снизу: 0 = самый нижний */
+  /** порядковый номер слота снизу: 0 = самый нижний (первый день цикла) */
   slotIdx: number;
   date: string;
   state: "done" | "missed" | "today" | "future";
 }
 
-function buildSlots(completedDates: string[], today: string): SlotInfo[] {
-  // Берём последние 30 дней (включая сегодня)
+function buildSlots(completedDates: string[], today: string, registeredAt?: string): SlotInfo[] {
+  // Если нет даты регистрации — используем сегодня как точку отсчёта
+  const startStr = registeredAt
+    ? registeredAt.slice(0, 10)
+    : today;
+
+  const startDate = new Date(startStr);
+  const todayDate = new Date(today);
+
+  // Количество дней с момента регистрации (0 = день регистрации)
+  const daysSinceStart = Math.floor(
+    (todayDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  // Номер текущего цикла (0-based)
+  const cycleIndex = daysSinceStart < 0 ? 0 : Math.floor(daysSinceStart / CYCLE);
+
+  // Первый день текущего цикла
+  const cycleStart = new Date(startDate);
+  cycleStart.setDate(cycleStart.getDate() + cycleIndex * CYCLE);
+
   const slots: SlotInfo[] = [];
-  for (let i = CYCLE - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
+  for (let i = 0; i < CYCLE; i++) {
+    const d = new Date(cycleStart);
+    d.setDate(d.getDate() + i);
     const dateStr = d.toISOString().slice(0, 10);
-    const slotIdx = CYCLE - 1 - i; // 0=самый старый, 29=сегодня
+
     let state: SlotInfo["state"];
     if (dateStr === today) {
       state = completedDates.includes(dateStr) ? "done" : "today";
+    } else if (dateStr > today) {
+      state = "future";
     } else if (completedDates.includes(dateStr)) {
       state = "done";
     } else {
       state = "missed";
     }
-    slots.push({ slotIdx, date: dateStr, state });
+
+    slots.push({ slotIdx: i, date: dateStr, state });
   }
-  return slots; // slots[0] = 30 дней назад, slots[29] = сегодня
+
+  // slots[0] = первый день цикла (нижний квадратик), slots[29] = последний (верхний)
+  return slots;
 }
 
 /* ─── Vertical column for one user ───────────────────────────── */
@@ -110,8 +133,19 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
   const streak = getStreak(user.completed_dates);
   const total = user.completed_dates.length;
   const rank = getRank(total);
-  const slots = buildSlots(user.completed_dates, today);
+  const slots = buildSlots(user.completed_dates, today, user.created_at);
   const todayMarked = user.completed_dates.includes(today);
+
+  // Номер текущего цикла (1-based)
+  const cycleNumber = (() => {
+    const startStr = user.created_at ? user.created_at.slice(0, 10) : today;
+    const startDate = new Date(startStr);
+    const todayDate = new Date(today);
+    const daysSinceStart = Math.floor(
+      (todayDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return daysSinceStart < 0 ? 1 : Math.floor(daysSinceStart / CYCLE) + 1;
+  })();
   const [marking, setMarking] = useState(false);
 
   const handleMark = async () => {
@@ -187,12 +221,13 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
         )}
       </div>
 
-      {/* 30 squares — rendered top to bottom (slot 29 on top, slot 0 on bottom) */}
+      {/* 30 squares — rendered top to bottom (slot 29 on top, slot 0 on bottom — fills bottom-up) */}
       <div className="flex flex-col gap-[3px]">
         {[...slots].reverse().map((slot) => {
           const isToday = slot.state === "today";
           const isDone = slot.state === "done";
           const isMissed = slot.state === "missed";
+          const isFuture = slot.state === "future";
 
           let bg = "#1e1e1e";
           let border = "1px solid #2a2a2a";
@@ -209,6 +244,10 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
             bg = "#3b0f0f";
             border = "1px solid #7f1d1d";
             title = `✗ ${slot.date}`;
+          } else if (isFuture) {
+            bg = "#111";
+            border = "1px solid #1e1e1e";
+            title = slot.date;
           } else if (isToday && isMe) {
             bg = todayMarked ? "#166534" : "#3d2e00";
             border = todayMarked ? "1px solid #15803d" : "1.5px solid #faad14";
@@ -277,9 +316,12 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
         })}
       </div>
 
-      {/* Total days */}
+      {/* Total days + cycle */}
       <span className="text-[10px] text-muted-foreground/40 tabular-nums mt-0.5">
         {total}д
+      </span>
+      <span className="text-[9px] text-muted-foreground/25 tabular-nums">
+        цикл {cycleNumber}
       </span>
     </div>
   );
