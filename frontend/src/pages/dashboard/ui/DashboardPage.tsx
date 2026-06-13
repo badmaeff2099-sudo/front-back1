@@ -316,13 +316,17 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
         })}
       </div>
 
-      {/* Total days + cycle */}
-      <span className="text-[10px] text-muted-foreground/40 tabular-nums mt-0.5">
-        {total}д
-      </span>
-      <span className="text-[9px] text-muted-foreground/25 tabular-nums">
-        цикл {cycleNumber}
-      </span>
+      {/* Total days (with cycle tooltip) */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="text-[10px] text-muted-foreground/40 tabular-nums mt-0.5 cursor-default">
+            {total}д
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Цикл {cycleNumber}</p>
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 }
