@@ -735,7 +735,7 @@ export default function DashboardPage({
                             title="По стрику"
                             className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] transition-colors ${sortBy === "streak" ? "bg-orange-500/20 text-orange-400" : "text-muted-foreground hover:text-foreground"}`}
                           >
-                            🔥 {sortBy === "streak" && <span className="text-[9px]">↓</span>}
+                            🔥 {sortBy === "streak"}
                           </button>
                           <button
                             onClick={() => {
@@ -752,7 +752,7 @@ export default function DashboardPage({
                             title="По количеству дней"
                             className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] transition-colors ${sortBy === "total" ? "bg-brand/20 text-brand" : "text-muted-foreground hover:text-foreground"}`}
                           >
-                            🏆 {sortBy === "total" && <span className="text-[9px]">↓</span>}
+                            🏆 {sortBy === "total"}
                           </button>
                         </div>
                       </div>
