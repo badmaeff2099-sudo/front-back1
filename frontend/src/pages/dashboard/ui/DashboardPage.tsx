@@ -5,7 +5,6 @@ import {
   Trophy,
   LogOut,
   MapPin,
-  ArrowUpDown,
   Flame,
   Users,
   LayoutDashboard,
@@ -361,6 +360,7 @@ export default function DashboardPage({
   const [locations, setLocations] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+  const [sortBy, setSortBy] = useState<"streak" | "total">("streak");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const today = todayISO();
@@ -447,11 +447,11 @@ export default function DashboardPage({
     return participants.filter((p) => Number(p.id) !== Number(currentUser.id));
   })();
 
-  const sortedOthers = [...othersBase].sort((a, b) =>
-    sortDir === "desc"
-      ? getStreak(b.completed_dates) - getStreak(a.completed_dates)
-      : getStreak(a.completed_dates) - getStreak(b.completed_dates),
-  );
+  const sortedOthers = [...othersBase].sort((a, b) => {
+    const valA = sortBy === "streak" ? getStreak(a.completed_dates) : a.completed_dates.length;
+    const valB = sortBy === "streak" ? getStreak(b.completed_dates) : b.completed_dates.length;
+    return sortDir === "desc" ? valB - valA : valA - valB;
+  });
 
   const paginated = sortedOthers.slice(
     (currentPage - 1) * PARTICIPANTS_PER_PAGE,
@@ -689,13 +689,30 @@ export default function DashboardPage({
                             <Users className="h-2.5 w-2.5" /> Друзья
                           </button>
                         </div>
-                        <button
-                          onClick={() => { setSortDir((d) => d === "desc" ? "asc" : "desc"); setCurrentPage(1); }}
-                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors ml-auto"
-                        >
-                          <ArrowUpDown className="h-3 w-3" />
-                          По стрику
-                        </button>
+                        <div className="flex items-center gap-1 ml-auto">
+                          <button
+                            onClick={() => {
+                              if (sortBy === "streak") setSortDir((d) => d === "desc" ? "asc" : "desc");
+                              else { setSortBy("streak"); setSortDir("desc"); }
+                              setCurrentPage(1);
+                            }}
+                            title="По стрику"
+                            className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] transition-colors ${sortBy === "streak" ? "bg-orange-500/20 text-orange-400" : "text-muted-foreground hover:text-foreground"}`}
+                          >
+                            🔥 {sortBy === "streak" && <span className="text-[9px]">{sortDir === "desc" ? "↑" : "↓"}</span>}
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (sortBy === "total") setSortDir((d) => d === "desc" ? "asc" : "desc");
+                              else { setSortBy("total"); setSortDir("desc"); }
+                              setCurrentPage(1);
+                            }}
+                            title="По количеству дней"
+                            className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] transition-colors ${sortBy === "total" ? "bg-brand/20 text-brand" : "text-muted-foreground hover:text-foreground"}`}
+                          >
+                            🏆 {sortBy === "total" && <span className="text-[9px]">{sortDir === "desc" ? "↑" : "↓"}</span>}
+                          </button>
+                        </div>
                       </div>
 
                       {/* Columns area: sticky me + scrollable others */}
