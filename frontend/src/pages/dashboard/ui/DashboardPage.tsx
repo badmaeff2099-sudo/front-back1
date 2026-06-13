@@ -44,17 +44,22 @@ function todayISO(): string {
 
 function getStreak(dates: string[] | undefined): number {
   if (!dates?.length) return 0;
-  const sorted = [...dates].sort().reverse();
+  const sorted = [...dates].sort().reverse(); // от новых к старым
   const today = todayISO();
+  const yesterday = addDays(today, -1);
+
+  // Серия актуальна если последняя отметка — сегодня или вчера
+  if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
+
   let streak = 0;
-  let cursor = today;
+  let cursor = sorted[0]; // начинаем с самой свежей отметки
   for (const d of sorted) {
     if (d === cursor) {
       streak++;
-      const prev = new Date(cursor);
-      prev.setDate(prev.getDate() - 1);
-      cursor = prev.toISOString().slice(0, 10);
-    } else if (d < cursor) break;
+      cursor = addDays(cursor, -1);
+    } else {
+      break; // пропуск — серия прервана
+    }
   }
   return streak;
 }
@@ -225,15 +230,11 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
 
       {/* Streak */}
       <div className="flex items-center gap-1">
+        <Flame className="h-3 w-3 text-orange-400 shrink-0" />
         {streak > 0 ? (
-          <>
-            <Flame className="h-3 w-3 text-orange-400 shrink-0" />
-            <span className="text-[11px] font-bold text-orange-400 tabular-nums">
-              {streak}
-            </span>
-          </>
+          <span className="text-[11px] font-bold text-orange-400 tabular-nums">{streak}</span>
         ) : (
-          <span className="text-[10px] text-muted-foreground/30 tabular-nums">—</span>
+          <span className="text-[10px] text-muted-foreground/30">—</span>
         )}
       </div>
 
@@ -332,15 +333,16 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
         })}
       </div>
 
-      {/* Total days (with cycle tooltip) */}
+      {/* Total days — внизу колонки, тултип с циклом */}
       <Tooltip>
         <TooltipTrigger render={
-          <span className="text-[10px] text-muted-foreground/40 tabular-nums mt-0.5 cursor-default" />
+          <div className="flex items-center gap-1 mt-0.5 cursor-default" />
         }>
-          {total}д
+          <Trophy className="h-2.5 w-2.5 text-muted-foreground/50 shrink-0" />
+          <span className="text-[10px] text-muted-foreground/50 tabular-nums">{total}</span>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Цикл {cycleNumber}</p>
+          <p>Всего дней: {total} · Цикл {cycleNumber}</p>
         </TooltipContent>
       </Tooltip>
     </div>
@@ -472,8 +474,8 @@ export default function DashboardPage({
   })();
 
   const sortedOthers = [...othersBase].sort((a, b) => {
-    const valA = sortBy === "streak" ? getStreak(a.completed_dates) : a.completed_dates.length;
-    const valB = sortBy === "streak" ? getStreak(b.completed_dates) : b.completed_dates.length;
+    const valA = sortBy === "streak" ? getStreak(a.completed_dates) : (a.completed_dates?.length ?? 0);
+    const valB = sortBy === "streak" ? getStreak(b.completed_dates) : (b.completed_dates?.length ?? 0);
     return sortDir === "desc" ? valB - valA : valA - valB;
   });
 
