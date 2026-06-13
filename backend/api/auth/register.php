@@ -92,6 +92,7 @@ try {
     ]);
 
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    $user['completed_dates'] = [];
 
     echo json_encode([
         "success" => true,

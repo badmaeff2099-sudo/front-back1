@@ -35,11 +35,15 @@ const CYCLE = 30; // квадратиков в столбце
 /* ─── Helpers ─────────────────────────────────────────────────── */
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
 }
 
-function getStreak(dates: string[]): number {
-  if (!dates.length) return 0;
+function getStreak(dates: string[] | undefined): number {
+  if (!dates?.length) return 0;
   const sorted = [...dates].sort().reverse();
   const today = todayISO();
   let streak = 0;
@@ -73,39 +77,51 @@ interface SlotInfo {
   state: "done" | "missed" | "today" | "future";
 }
 
-function buildSlots(completedDates: string[], today: string, registeredAt?: string): SlotInfo[] {
+/** Прибавить N дней к строке "YYYY-MM-DD" без Date-объектов (нет проблем с таймзоной) */
+function addDays(dateStr: string, n: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + n); // локальное время, без UTC-сдвига
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+/** Разность дат в днях (b - a), строки "YYYY-MM-DD" */
+function diffDays(a: string, b: string): number {
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  const da = new Date(ay, am - 1, ad);
+  const db = new Date(by, bm - 1, bd);
+  return Math.round((db.getTime() - da.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function buildSlots(completedDates: string[] | undefined, today: string, registeredAt?: string): SlotInfo[] {
+  completedDates = completedDates ?? [];
+
   // Если нет даты регистрации — используем сегодня как точку отсчёта
-  const startStr = registeredAt
-    ? registeredAt.slice(0, 10)
-    : today;
+  const startStr = registeredAt ? registeredAt.slice(0, 10) : today;
 
-  const startDate = new Date(startStr);
-  const todayDate = new Date(today);
-
-  // Количество дней с момента регистрации (0 = день регистрации)
-  const daysSinceStart = Math.floor(
-    (todayDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const daysSinceStart = diffDays(startStr, today);
 
   // Номер текущего цикла (0-based)
   const cycleIndex = daysSinceStart < 0 ? 0 : Math.floor(daysSinceStart / CYCLE);
 
-  // Первый день текущего цикла
-  const cycleStart = new Date(startDate);
-  cycleStart.setDate(cycleStart.getDate() + cycleIndex * CYCLE);
+  // Первый день текущего цикла (строка)
+  const cycleStartStr = addDays(startStr, cycleIndex * CYCLE);
+
+  const doneSet = new Set(completedDates);
 
   const slots: SlotInfo[] = [];
   for (let i = 0; i < CYCLE; i++) {
-    const d = new Date(cycleStart);
-    d.setDate(d.getDate() + i);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = addDays(cycleStartStr, i);
 
     let state: SlotInfo["state"];
     if (dateStr === today) {
-      state = completedDates.includes(dateStr) ? "done" : "today";
+      state = doneSet.has(dateStr) ? "done" : "today";
     } else if (dateStr > today) {
       state = "future";
-    } else if (completedDates.includes(dateStr)) {
+    } else if (doneSet.has(dateStr)) {
       state = "done";
     } else {
       state = "missed";
@@ -129,11 +145,12 @@ interface UserColumnProps {
 }
 
 function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnProps) {
-  const streak = getStreak(user.completed_dates);
-  const total = user.completed_dates.length;
+  const dates = user.completed_dates ?? [];
+  const streak = getStreak(dates);
+  const total = dates.length;
   const rank = getRank(total);
-  const slots = buildSlots(user.completed_dates, today, user.created_at);
-  const todayMarked = user.completed_dates.includes(today);
+  const slots = buildSlots(dates, today, user.created_at);
+  const todayMarked = dates.includes(today);
 
   // Номер текущего цикла (1-based)
   const cycleNumber = (() => {
@@ -179,11 +196,12 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
     >
       {/* Avatar + name */}
       <Tooltip>
-        <TooltipTrigger asChild>
+        <TooltipTrigger render={
           <button
             onClick={() => onSelectUser(user)}
             className="flex flex-col items-center gap-1.5 group"
-          >
+          />
+        }>
             <UserAvatar
               avatarUrl={user.avatar_url}
               username={user.username}
@@ -196,7 +214,6 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
             >
               {user.username}
             </span>
-          </button>
         </TooltipTrigger>
         <TooltipContent>
           <p>
@@ -265,7 +282,7 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
           if (isToday && isMe && !todayMarked) {
             return (
               <Tooltip key={slot.date}>
-                <TooltipTrigger asChild>
+                <TooltipTrigger render={
                   <button
                     onClick={handleMark}
                     disabled={marking}
@@ -283,7 +300,7 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
                     }}
                     aria-label="Отметить сегодня"
                   />
-                </TooltipTrigger>
+                } />
                 <TooltipContent>
                   <p>{title}</p>
                 </TooltipContent>
@@ -293,7 +310,7 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
 
           return (
             <Tooltip key={slot.date}>
-              <TooltipTrigger asChild>
+              <TooltipTrigger render={
                 <div
                   style={{
                     width: 36,
@@ -306,7 +323,7 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
                     flexShrink: 0,
                   }}
                 />
-              </TooltipTrigger>
+              } />
               <TooltipContent>
                 <p>{title}</p>
               </TooltipContent>
@@ -317,10 +334,10 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
 
       {/* Total days (with cycle tooltip) */}
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="text-[10px] text-muted-foreground/40 tabular-nums mt-0.5 cursor-default">
-            {total}д
-          </span>
+        <TooltipTrigger render={
+          <span className="text-[10px] text-muted-foreground/40 tabular-nums mt-0.5 cursor-default" />
+        }>
+          {total}д
         </TooltipTrigger>
         <TooltipContent>
           <p>Цикл {cycleNumber}</p>
@@ -354,6 +371,12 @@ export default function DashboardPage({
   const [participants, setParticipants] = useState<UserType[]>([]);
   const [allUsers, setAllUsers] = useState<UserType[]>([]); // все без фильтра локации
   const [friendIds, setFriendIds] = useState<Set<number>>(new Set());
+  // Локальная копия текущего пользователя — обновляется при отметке дня,
+  // не зависит от фильтра локации и наличия в participants
+  const [myData, setMyData] = useState<UserType>({
+    ...currentUser,
+    completed_dates: currentUser.completed_dates ?? [],
+  });
   const [viewMode, setViewMode] = useState<"all" | "friends">("all");
   const [loading, setLoading] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState("");
@@ -409,6 +432,7 @@ export default function DashboardPage({
   useEffect(() => {
     const loc = currentUser.location || "";
     setSelectedLocation(loc);
+    setMyData({ ...currentUser, completed_dates: currentUser.completed_dates ?? [] }); // сбрасываем при смене пользователя
     loadParticipants(loc);
     loadAllUsers();
     loadFriendIds();
@@ -424,17 +448,17 @@ export default function DashboardPage({
   const handleMarkDay = () => {
     const addToday = (list: UserType[]) =>
       list.map((p) =>
-        p.id === currentUser.id
+        Number(p.id) === Number(currentUser.id)
           ? { ...p, completed_dates: [...(p.completed_dates ?? []), today] }
           : p,
       );
+    setMyData((prev) => ({
+      ...prev,
+      completed_dates: [...(prev.completed_dates ?? []), today],
+    }));
     setParticipants(addToday);
     setAllUsers(addToday);
   };
-
-  const myEntry = participants.find(
-    (p) => Number(p.id) === Number(currentUser.id),
-  );
 
   // «Все» — из participants (с фильтром локации).
   // «Друзья» — из allUsers (без фильтра локации), отфильтрованных по friendIds.
@@ -602,8 +626,8 @@ export default function DashboardPage({
                     )}
 
                     {(() => {
-                      const total = myEntry?.completed_dates.length ?? 0;
-                      const streak = myEntry ? getStreak(myEntry.completed_dates) : 0;
+                      const total = myData.completed_dates.length ?? 0;
+                      const streak = getStreak(myData.completed_dates);
                       const joinDate = currentUser.created_at
                         ? new Date(currentUser.created_at).toLocaleDateString("ru-RU", {
                             day: "numeric",
@@ -717,23 +741,21 @@ export default function DashboardPage({
 
                       {/* Columns area: sticky me + scrollable others */}
                       <div className="flex overflow-hidden" style={{ minHeight: 0 }}>
-                        {/* Sticky: current user column */}
-                        {myEntry && (
-                          <div
-                            className="shrink-0 border-r border-brand/20 bg-[#0d0d0d]"
-                            style={{ zIndex: 10 }}
-                          >
-                            <div className="py-4 px-1">
-                              <UserColumn
-                                user={myEntry}
-                                isMe={true}
-                                today={today}
-                                onMarkDay={handleMarkDay}
-                                onSelectUser={onSelectUser}
-                              />
-                            </div>
+                        {/* Sticky: current user column — всегда из myData, не зависит от фильтра локации */}
+                        <div
+                          className="shrink-0 border-r border-brand/20 bg-[#0d0d0d]"
+                          style={{ zIndex: 10 }}
+                        >
+                          <div className="py-4 px-1">
+                            <UserColumn
+                              user={myData}
+                              isMe={true}
+                              today={today}
+                              onMarkDay={handleMarkDay}
+                              onSelectUser={onSelectUser}
+                            />
                           </div>
-                        )}
+                        </div>
 
                         {/* Scrollable: others */}
                         <div
