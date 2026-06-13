@@ -353,7 +353,8 @@ export default function DashboardPage({
   onLogout,
 }: DashboardPageProps) {
   const [participants, setParticipants] = useState<UserType[]>([]);
-  const [friendsList, setFriendsList] = useState<UserType[]>([]);
+  const [allUsers, setAllUsers] = useState<UserType[]>([]); // все без фильтра локации
+  const [friendIds, setFriendIds] = useState<Set<number>>(new Set());
   const [viewMode, setViewMode] = useState<"all" | "friends">("all");
   const [loading, setLoading] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState("");
@@ -386,19 +387,31 @@ export default function DashboardPage({
     }
   };
 
+  // Загружаем ВСЕХ пользователей (без фильтра локации) — источник данных для вкладки «Друзья»
+  const loadAllUsers = async () => {
+    const res = await getUsers("");
+    if (res.success) {
+      setAllUsers(res.users);
+    }
+  };
+
+  // Загружаем только ID друзей
+  const loadFriendIds = async () => {
+    const res = await getFriends(currentUser.id);
+    if (res.success) {
+      const ids = new Set<number>(
+        (res.friends ?? []).map((f: any) => Number(f.id))
+      );
+      setFriendIds(ids);
+    }
+  };
+
   useEffect(() => {
     const loc = currentUser.location || "";
     setSelectedLocation(loc);
     loadParticipants(loc);
-    getFriends(currentUser.id).then((res) => {
-      if (res.success) {
-        const friends = (res.friends ?? []).map((f: any) => ({
-          ...f,
-          completed_dates: f.completed_dates ?? [],
-        }));
-        setFriendsList(friends);
-      }
-    });
+    loadAllUsers();
+    loadFriendIds();
   }, [currentUser]);
 
   const handleLocationChange = (loc: string) => {
@@ -409,26 +422,29 @@ export default function DashboardPage({
   };
 
   const handleMarkDay = () => {
-    setParticipants((prev) =>
-      prev.map((p) =>
+    const addToday = (list: UserType[]) =>
+      list.map((p) =>
         p.id === currentUser.id
           ? { ...p, completed_dates: [...(p.completed_dates ?? []), today] }
           : p,
-      ),
-    );
+      );
+    setParticipants(addToday);
+    setAllUsers(addToday);
   };
 
   const myEntry = participants.find(
     (p) => Number(p.id) === Number(currentUser.id),
   );
 
-  // Others list
+  // «Все» — из participants (с фильтром локации).
+  // «Друзья» — из allUsers (без фильтра локации), отфильтрованных по friendIds.
   const othersBase = (() => {
-    const list =
-      viewMode === "friends"
-        ? friendsList.filter((f) => Number(f.id) !== Number(currentUser.id))
-        : participants.filter((p) => Number(p.id) !== Number(currentUser.id));
-    return list;
+    if (viewMode === "friends") {
+      return allUsers.filter(
+        (u) => Number(u.id) !== Number(currentUser.id) && friendIds.has(Number(u.id))
+      );
+    }
+    return participants.filter((p) => Number(p.id) !== Number(currentUser.id));
   })();
 
   const sortedOthers = [...othersBase].sort((a, b) =>
@@ -667,7 +683,7 @@ export default function DashboardPage({
                             Все
                           </button>
                           <button
-                            onClick={() => { setViewMode("friends"); setCurrentPage(1); }}
+                            onClick={() => { setViewMode("friends"); setCurrentPage(1); loadAllUsers(); loadFriendIds(); }}
                             className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${viewMode === "friends" ? "bg-brand/20 text-brand" : "text-muted-foreground hover:text-foreground"}`}
                           >
                             <Users className="h-2.5 w-2.5" /> Друзья
