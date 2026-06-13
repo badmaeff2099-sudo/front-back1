@@ -385,7 +385,7 @@ export default function DashboardPage({
   const [locations, setLocations] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
-  const [sortBy, setSortBy] = useState<"streak" | "total">("streak");
+  const [sortBy, setSortBy] = useState<"streak" | "total" | "default">("default");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const today = todayISO();
@@ -474,6 +474,10 @@ export default function DashboardPage({
   })();
 
   const sortedOthers = [...othersBase].sort((a, b) => {
+    if (sortBy === "default") {
+      // по дате регистрации: старые слева, новые справа
+      return (a.created_at ?? "").localeCompare(b.created_at ?? "");
+    }
     const valA = sortBy === "streak" ? getStreak(a.completed_dates) : (a.completed_dates?.length ?? 0);
     const valB = sortBy === "streak" ? getStreak(b.completed_dates) : (b.completed_dates?.length ?? 0);
     return sortDir === "desc" ? valB - valA : valA - valB;
@@ -718,25 +722,37 @@ export default function DashboardPage({
                         <div className="flex items-center gap-1 ml-auto">
                           <button
                             onClick={() => {
-                              if (sortBy === "streak") setSortDir((d) => d === "desc" ? "asc" : "desc");
-                              else { setSortBy("streak"); setSortDir("desc"); }
+                              if (sortBy === "streak") {
+                                // 2-й клик — сброс на дефолт
+                                setSortBy("default");
+                              } else {
+                                // 1-й клик — сортировка по стрику убыванием
+                                setSortBy("streak");
+                                setSortDir("desc");
+                              }
                               setCurrentPage(1);
                             }}
                             title="По стрику"
                             className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] transition-colors ${sortBy === "streak" ? "bg-orange-500/20 text-orange-400" : "text-muted-foreground hover:text-foreground"}`}
                           >
-                            🔥 {sortBy === "streak" && <span className="text-[9px]">{sortDir === "desc" ? "↑" : "↓"}</span>}
+                            🔥 {sortBy === "streak" && <span className="text-[9px]">↓</span>}
                           </button>
                           <button
                             onClick={() => {
-                              if (sortBy === "total") setSortDir((d) => d === "desc" ? "asc" : "desc");
-                              else { setSortBy("total"); setSortDir("desc"); }
+                              if (sortBy === "total") {
+                                // 2-й клик — сброс на дефолт
+                                setSortBy("default");
+                              } else {
+                                // 1-й клик — сортировка по количеству дней убыванием
+                                setSortBy("total");
+                                setSortDir("desc");
+                              }
                               setCurrentPage(1);
                             }}
                             title="По количеству дней"
                             className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] transition-colors ${sortBy === "total" ? "bg-brand/20 text-brand" : "text-muted-foreground hover:text-foreground"}`}
                           >
-                            🏆 {sortBy === "total" && <span className="text-[9px]">{sortDir === "desc" ? "↑" : "↓"}</span>}
+                            🏆 {sortBy === "total" && <span className="text-[9px]">↓</span>}
                           </button>
                         </div>
                       </div>
