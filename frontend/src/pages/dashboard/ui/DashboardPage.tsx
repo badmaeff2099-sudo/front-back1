@@ -220,11 +220,18 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
               {user.username}
             </span>
         </TooltipTrigger>
-        <TooltipContent>
-          <p>
-            {rank.icon} {rank.title}
-            {isMe ? " · Вы" : ""}
-          </p>
+        <TooltipContent className="max-w-[200px]">
+          <div className="flex flex-col gap-1">
+            <p>
+              {rank.icon} {rank.title}
+              {isMe ? " · Вы" : ""}
+            </p>
+            {user.goal && (
+              <p className="text-[11px] text-muted-foreground leading-snug border-t border-white/10 pt-1 mt-0.5">
+                🎯 {user.goal}
+              </p>
+            )}
+          </div>
         </TooltipContent>
       </Tooltip>
 
