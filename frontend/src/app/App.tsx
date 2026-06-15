@@ -62,6 +62,17 @@ function App() {
     localStorage.setItem("chainify-user-data", JSON.stringify({ ...currentUser, ...updatedUser }))
   }
 
+  const handleMarkDayInApp = (today: string) => {
+    setCurrentUser(prev => {
+      if (!prev) return prev
+      const already = (prev.completed_dates ?? []).includes(today)
+      if (already) return prev
+      const updated = { ...prev, completed_dates: [...(prev.completed_dates ?? []), today] }
+      localStorage.setItem("chainify-user-data", JSON.stringify(updated))
+      return updated
+    })
+  }
+
   const handleSelectUser = (user: UserType) => {
     setShowFriends(false)
     setSelectedUser(user)
@@ -84,6 +95,7 @@ function App() {
         onShowCabinet={() => setShowCabinet(true)}
         onSelectUser={setSelectedUser}
         onLogout={() => setShowLogoutConfirm(true)}
+        onMarkDayInApp={handleMarkDayInApp}
       />
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">

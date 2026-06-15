@@ -359,6 +359,7 @@ interface DashboardPageProps {
   onShowCabinet: () => void;
   onSelectUser: (user: UserType) => void;
   onLogout: () => void;
+  onMarkDayInApp?: (today: string) => void;
 }
 
 export default function DashboardPage({
@@ -369,6 +370,7 @@ export default function DashboardPage({
   onShowCabinet,
   onSelectUser,
   onLogout,
+  onMarkDayInApp,
 }: DashboardPageProps) {
   const [participants, setParticipants] = useState<UserType[]>([]);
   const [allUsers, setAllUsers] = useState<UserType[]>([]); // все без фильтра локации
@@ -460,6 +462,8 @@ export default function DashboardPage({
     }));
     setParticipants(addToday);
     setAllUsers(addToday);
+    // Синхронизируем currentUser в App.tsx, чтобы ProfilePage/CabinetPage видели актуальное состояние
+    onMarkDayInApp?.(today);
   };
 
   // «Все» — из participants (с фильтром локации).
