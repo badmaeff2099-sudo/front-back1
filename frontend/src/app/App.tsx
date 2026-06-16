@@ -88,6 +88,18 @@ function App() {
     })
   }
 
+  const handleMarkDayInApp = (today: string, status: "done" | "rest") => {
+    setCurrentUser(prev => {
+      if (!prev) return prev
+      const alreadyDone = (prev.completed_dates ?? []).includes(today)
+      const alreadyRest = (prev.rest_dates ?? []).includes(today)
+      if (alreadyDone || alreadyRest) return prev
+      return status === "rest"
+        ? { ...prev, rest_dates: [...(prev.rest_dates ?? []), today] }
+        : { ...prev, completed_dates: [...(prev.completed_dates ?? []), today] }
+    })
+  }
+
   const handleSelectUser = (user: UserType) => {
     setShowFriends(false)
     setSelectedUser(user)
@@ -110,6 +122,7 @@ function App() {
         onShowCabinet={() => setShowCabinet(true)}
         onSelectUser={setSelectedUser}
         onLogout={() => setShowLogoutConfirm(true)}
+        onMarkDayInApp={handleMarkDayInApp}
       />
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">

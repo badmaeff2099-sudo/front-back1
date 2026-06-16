@@ -480,6 +480,7 @@ interface DashboardPageProps {
   onShowCabinet: () => void;
   onSelectUser: (user: UserType) => void;
   onLogout: () => void;
+  onMarkDayInApp?: (today: string, status: "done" | "rest") => void;
 }
 
 export default function DashboardPage({
@@ -490,6 +491,7 @@ export default function DashboardPage({
   onShowCabinet,
   onSelectUser,
   onLogout,
+  onMarkDayInApp,
 }: DashboardPageProps) {
   const [participants, setParticipants] = useState<UserType[]>([]);
   const [allUsers, setAllUsers] = useState<UserType[]>([]); // все без фильтра локации
@@ -585,6 +587,7 @@ export default function DashboardPage({
     );
     setParticipants(addToday);
     setAllUsers(addToday);
+    onMarkDayInApp?.(today, status);
   };
 
   // «Все» — из participants (с фильтром локации).
