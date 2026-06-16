@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import {
   User,
@@ -168,9 +169,15 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
     return daysSinceStart < 0 ? 1 : Math.floor(daysSinceStart / CYCLE) + 1;
   })();
   const [marking, setMarking] = useState(false);
+  const [showMarkModal, setShowMarkModal] = useState(false);
 
-  const handleMark = async () => {
+  const handleMark = () => {
     if (!isMe || todayMarked || marking) return;
+    setShowMarkModal(true);
+  };
+
+  const handleMarkConfirm = async () => {
+    setShowMarkModal(false);
     setMarking(true);
     try {
       const res = await markDay(user.id, today);
@@ -352,6 +359,78 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
           <p>Всего дней: {total} · Цикл {cycleNumber}</p>
         </TooltipContent>
       </Tooltip>
+
+      {showMarkModal && createPortal(
+        <div
+          onClick={() => setShowMarkModal(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            backgroundColor: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              margin: "0 20px", maxWidth: 380, width: "100%",
+              background: "linear-gradient(160deg, #0f0f1a 0%, #0a0a14 100%)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              borderTop: "1px solid rgba(255,255,255,0.13)",
+              borderRadius: 16, padding: "36px 32px 28px",
+              boxShadow: "0 40px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.08)",
+              textAlign: "center",
+            }}
+          >
+            <div style={{
+              width: 40, height: 2,
+              background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
+              margin: "0 auto 28px",
+              borderRadius: 2,
+            }} />
+            <p style={{
+              color: "rgba(255,255,255,0.75)", fontSize: 13.5,
+              lineHeight: 1.75, fontWeight: 400, margin: 0,
+              letterSpacing: "0.01em",
+            }}>
+              Помни! Здесь ты не соревнуешься с другими, ты соревнуешься с самим собой, работая не над количеством, а над качеством каждого дня!
+            </p>
+            <div style={{
+              marginTop: 28,
+              height: "1px",
+              background: "rgba(255,255,255,0.05)",
+              marginBottom: 24,
+            }} />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={handleMarkConfirm}
+                style={{
+                  flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 13,
+                  fontWeight: 600, color: "#fff", letterSpacing: "0.03em",
+                  background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                  border: "1px solid rgba(139,92,246,0.3)",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 16px rgba(99,102,241,0.25)",
+                }}
+              >
+                Отметить
+              </button>
+              <button
+                onClick={() => setShowMarkModal(false)}
+                style={{
+                  flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 13,
+                  fontWeight: 500, color: "rgba(255,255,255,0.3)",
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  cursor: "pointer", letterSpacing: "0.02em",
+                }}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
