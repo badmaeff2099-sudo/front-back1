@@ -35,10 +35,16 @@ try {
         u.avatar_url,
 
         COALESCE(
-            json_agg(p.day_date)
-            FILTER (WHERE p.day_date IS NOT NULL),
+            json_agg(p.day_date ORDER BY p.day_date)
+            FILTER (WHERE p.day_date IS NOT NULL AND p.status != 'rest'),
             '[]'
-        ) AS completed_dates
+        ) AS completed_dates,
+
+        COALESCE(
+            json_agg(p.day_date ORDER BY p.day_date)
+            FILTER (WHERE p.day_date IS NOT NULL AND p.status = 'rest'),
+            '[]'
+        ) AS rest_dates
 
     FROM users u
 
@@ -71,11 +77,11 @@ try {
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     foreach ($users as &$user) {
-
         if (is_string($user['completed_dates'])) {
-
-            $user['completed_dates'] =
-                json_decode($user['completed_dates'], true);
+            $user['completed_dates'] = json_decode($user['completed_dates'], true);
+        }
+        if (is_string($user['rest_dates'])) {
+            $user['rest_dates'] = json_decode($user['rest_dates'], true);
         }
     }
 

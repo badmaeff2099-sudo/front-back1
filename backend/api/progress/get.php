@@ -47,14 +47,21 @@ try {
 
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-    $completed_dates = array_map(
-        fn($row) => $row['day_date'],
-        $rows
-    );
+    $completed_dates = [];
+    $rest_dates = [];
+
+    foreach ($rows as $row) {
+        if ($row['status'] === 'rest') {
+            $rest_dates[] = $row['day_date'];
+        } else {
+            $completed_dates[] = $row['day_date'];
+        }
+    }
 
     echo json_encode([
         "success" => true,
         "completed_dates" => $completed_dates,
+        "rest_dates" => $rest_dates,
         "total" => count($completed_dates)
     ], JSON_UNESCAPED_UNICODE);
 

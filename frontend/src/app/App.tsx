@@ -3,6 +3,7 @@ import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
 import { TooltipProvider } from "@/shared/ui/tooltip"
 import { requestPermission, checkAndNotify } from "@/shared/api/notifications"
+import { getProgress } from "@/shared/api/client"
 import type { User as UserType } from "@/entities/user/model/types"
 
 const AuthPage = lazy(() => import("@/pages/auth/ui/AuthPage"))
@@ -34,14 +35,33 @@ function App() {
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
+  // При старте — грузим актуальный прогресс с сервера (completed_dates + rest_dates)
   useEffect(() => {
     if (!isAuthenticated || !currentUser) return
     requestPermission()
     checkAndNotify()
-  }, [isAuthenticated, currentUser])
+    getProgress(currentUser.id).then((res) => {
+      if (res.success) {
+        setCurrentUser(prev => {
+          if (!prev) return prev
+          const updated = {
+            ...prev,
+            completed_dates: res.completed_dates ?? [],
+            rest_dates: res.rest_dates ?? [],
+          }
+          // Сохраняем без прогресса — только профиль
+          const { completed_dates: _c, rest_dates: _r, ...profileOnly } = updated
+          localStorage.setItem("chainify-user-data", JSON.stringify(profileOnly))
+          return updated
+        })
+      }
+    })
+  }, [isAuthenticated])
 
   const handleLogin = (userData: UserType) => {
-    localStorage.setItem("chainify-user-data", JSON.stringify(userData))
+    // Сохраняем только профиль, прогресс грузится с сервера
+    const { completed_dates: _c, rest_dates: _r, ...profileOnly } = userData
+    localStorage.setItem("chainify-user-data", JSON.stringify(profileOnly))
     setCurrentUser(userData)
     setIsAuthenticated(true)
   }
@@ -58,18 +78,13 @@ function App() {
   }
 
   const handleUpdateUser = (updatedUser: Partial<UserType>) => {
-    setCurrentUser(prev => ({ ...prev!, ...updatedUser }))
-    localStorage.setItem("chainify-user-data", JSON.stringify({ ...currentUser, ...updatedUser }))
-  }
-
-  const handleMarkDayInApp = (today: string) => {
     setCurrentUser(prev => {
       if (!prev) return prev
-      const already = (prev.completed_dates ?? []).includes(today)
-      if (already) return prev
-      const updated = { ...prev, completed_dates: [...(prev.completed_dates ?? []), today] }
-      localStorage.setItem("chainify-user-data", JSON.stringify(updated))
-      return updated
+      const merged = { ...prev, ...updatedUser }
+      // Сохраняем только профиль без прогресса
+      const { completed_dates: _c, rest_dates: _r, ...profileOnly } = merged
+      localStorage.setItem("chainify-user-data", JSON.stringify(profileOnly))
+      return merged
     })
   }
 
@@ -95,7 +110,6 @@ function App() {
         onShowCabinet={() => setShowCabinet(true)}
         onSelectUser={setSelectedUser}
         onLogout={() => setShowLogoutConfirm(true)}
-        onMarkDayInApp={handleMarkDayInApp}
       />
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">

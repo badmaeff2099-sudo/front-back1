@@ -44,9 +44,13 @@ try {
             u.avatar_url,
             u.created_at,
             COALESCE(
-                json_agg(p.day_date) FILTER (WHERE p.day_date IS NOT NULL),
+                json_agg(p.day_date ORDER BY p.day_date) FILTER (WHERE p.day_date IS NOT NULL AND p.status != 'rest'),
                 '[]'
-            ) AS completed_dates
+            ) AS completed_dates,
+            COALESCE(
+                json_agg(p.day_date ORDER BY p.day_date) FILTER (WHERE p.day_date IS NOT NULL AND p.status = 'rest'),
+                '[]'
+            ) AS rest_dates
         FROM users u
         LEFT JOIN progress p ON p.user_id = u.id
         WHERE u.email = :email
@@ -84,6 +88,9 @@ try {
 
     if (is_string($user['completed_dates'])) {
         $user['completed_dates'] = json_decode($user['completed_dates'], true);
+    }
+    if (is_string($user['rest_dates'])) {
+        $user['rest_dates'] = json_decode($user['rest_dates'], true);
     }
 
     echo json_encode([

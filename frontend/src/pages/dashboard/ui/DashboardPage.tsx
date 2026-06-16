@@ -43,23 +43,34 @@ function todayISO(): string {
   return `${y}-${m}-${dd}`;
 }
 
-function getStreak(dates: string[] | undefined): number {
-  if (!dates?.length) return 0;
-  const sorted = [...dates].sort().reverse(); // от новых к старым
+function getStreak(dates: string[] | undefined, restDates?: string[]): number {
+  const allDates = [...(dates ?? []), ...(restDates ?? [])];
+  if (!allDates.length) return 0;
+
   const today = todayISO();
   const yesterday = addDays(today, -1);
+  const restSet = new Set(restDates ?? []);
+
+  // Объединяем все отмеченные дни (done + rest), сортируем от нового к старому
+  const sorted = [...allDates].sort().reverse();
 
   // Серия актуальна если последняя отметка — сегодня или вчера
   if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
 
   let streak = 0;
-  let cursor = sorted[0]; // начинаем с самой свежей отметки
+  let cursor = sorted[0];
+  let prevWasRest = false;
+
   for (const d of sorted) {
     if (d === cursor) {
+      const isRest = restSet.has(d);
+      // Два выходных подряд — стрик обнуляется
+      if (isRest && prevWasRest) break;
       streak++;
+      prevWasRest = isRest;
       cursor = addDays(cursor, -1);
     } else {
-      break; // пропуск — серия прервана
+      break;
     }
   }
   return streak;
@@ -80,7 +91,7 @@ interface SlotInfo {
   /** порядковый номер слота снизу: 0 = самый нижний (первый день цикла) */
   slotIdx: number;
   date: string;
-  state: "done" | "missed" | "today" | "future";
+  state: "done" | "missed" | "today" | "future" | "rest";
 }
 
 /** Прибавить N дней к строке "YYYY-MM-DD" без Date-объектов (нет проблем с таймзоной) */
@@ -102,8 +113,9 @@ function diffDays(a: string, b: string): number {
   return Math.round((db.getTime() - da.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function buildSlots(completedDates: string[] | undefined, today: string, registeredAt?: string): SlotInfo[] {
+function buildSlots(completedDates: string[] | undefined, today: string, registeredAt?: string, restDates?: string[]): SlotInfo[] {
   completedDates = completedDates ?? [];
+  const restSet = new Set(restDates ?? []);
 
   // Если нет даты регистрации — используем сегодня как точку отсчёта
   const startStr = registeredAt ? registeredAt.slice(0, 10) : today;
@@ -124,11 +136,15 @@ function buildSlots(completedDates: string[] | undefined, today: string, registe
 
     let state: SlotInfo["state"];
     if (dateStr === today) {
-      state = doneSet.has(dateStr) ? "done" : "today";
+      if (doneSet.has(dateStr)) state = "done";
+      else if (restSet.has(dateStr)) state = "rest";
+      else state = "today";
     } else if (dateStr > today) {
       state = "future";
     } else if (doneSet.has(dateStr)) {
       state = "done";
+    } else if (restSet.has(dateStr)) {
+      state = "rest";
     } else {
       state = "missed";
     }
@@ -146,17 +162,18 @@ interface UserColumnProps {
   user: UserType;
   isMe: boolean;
   today: string;
-  onMarkDay?: () => void;
+  onMarkDay?: (status: "done" | "rest") => void;
   onSelectUser: (u: UserType) => void;
 }
 
 function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnProps) {
   const dates = user.completed_dates ?? [];
-  const streak = getStreak(dates);
+  const restDates = user.rest_dates ?? [];
+  const streak = getStreak(dates, restDates);
   const total = dates.length;
   const rank = getRank(total);
-  const slots = buildSlots(dates, today, user.created_at);
-  const todayMarked = dates.includes(today);
+  const slots = buildSlots(dates, today, user.created_at, restDates);
+  const todayMarked = dates.includes(today) || restDates.includes(today);
 
   // Номер текущего цикла (1-based)
   const cycleNumber = (() => {
@@ -176,17 +193,19 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
     setShowMarkModal(true);
   };
 
-  const handleMarkConfirm = async () => {
+  const handleMarkConfirm = async (status: "done" | "rest" = "done") => {
     setShowMarkModal(false);
     setMarking(true);
     try {
-      const res = await markDay(user.id, today);
+      const res = await markDay(user.id, today, status);
       if (res.success) {
-        onMarkDay?.();
-        toast.success("День отмечен! 🎉");
+        onMarkDay?.(status);
+        toast.success(status === "rest" ? "Выходной отмечен!" : "День отмечен! 🎉");
       } else if (res.error === "Already marked for this date") {
         toast.warning("Сегодня уже отмечено!");
-        onMarkDay?.();
+        onMarkDay?.(status);
+      } else if (res.error === "Two rest days in a row break the streak") {
+        toast.error("Два выходных подряд — стрик обнулится! Попробуй отметить день.");
       } else {
         toast.error(res.error || "Ошибка");
       }
@@ -259,6 +278,7 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
           const isDone = slot.state === "done";
           const isMissed = slot.state === "missed";
           const isFuture = slot.state === "future";
+          const isRest = slot.state === "rest";
 
           let bg = "#1e1e1e";
           let border = "1px solid #2a2a2a";
@@ -267,10 +287,15 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
           let title = slot.date;
 
           if (isDone) {
-            bg = "#166534"; // green-800
+            bg = "#166534";
             border = "1px solid #15803d";
             shadow = "0 0 6px rgba(34,197,94,0.35)";
             title = `✓ ${slot.date}`;
+          } else if (isRest) {
+            bg = "#facc15";
+            border = "1px solid #fde047";
+            shadow = "0 0 6px rgba(250,204,21,0.4)";
+            title = `☀ Выходной · ${slot.date}`;
           } else if (isMissed) {
             bg = "#3b0f0f";
             border = "1px solid #7f1d1d";
@@ -280,18 +305,16 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
             border = "1px solid #1e1e1e";
             title = slot.date;
           } else if (isToday && isMe) {
-            bg = todayMarked ? "#166534" : "#3d2e00";
-            border = todayMarked ? "1px solid #15803d" : "1.5px solid #faad14";
-            shadow = todayMarked
-              ? "0 0 6px rgba(34,197,94,0.35)"
-              : "0 0 8px rgba(250,173,20,0.4)";
-            cursor = todayMarked ? "default" : "pointer";
-            title = todayMarked ? `✓ Сегодня` : "Нажмите чтобы отметить";
+            bg = "#3d2e00";
+            border = "1.5px solid #faad14";
+            shadow = "0 0 8px rgba(250,173,20,0.4)";
+            cursor = "pointer";
+            title = "Нажмите чтобы отметить";
           } else if (isToday && !isMe) {
-            bg = todayMarked ? "#166534" : "#3d2e00";
-            border = todayMarked ? "1px solid #15803d" : "1.5px solid #faad14";
-            shadow = todayMarked ? "0 0 6px rgba(34,197,94,0.35)" : "0 0 6px rgba(250,173,20,0.3)";
-            title = todayMarked ? `✓ Сегодня` : "Сегодня";
+            bg = "#3d2e00";
+            border = "1.5px solid #faad14";
+            shadow = "0 0 6px rgba(250,173,20,0.3)";
+            title = "Сегодня";
           }
 
           if (isToday && isMe && !todayMarked) {
@@ -400,9 +423,9 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
               background: "rgba(255,255,255,0.05)",
               marginBottom: 24,
             }} />
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 8 }}>
               <button
-                onClick={handleMarkConfirm}
+                onClick={() => handleMarkConfirm("done")}
                 style={{
                   flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 13,
                   fontWeight: 600, color: "#fff", letterSpacing: "0.03em",
@@ -413,6 +436,18 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
                 }}
               >
                 Отметить
+              </button>
+              <button
+                onClick={() => handleMarkConfirm("rest")}
+                style={{
+                  flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 13,
+                  fontWeight: 600, color: "#a16207", letterSpacing: "0.03em",
+                  background: "rgba(161,98,7,0.1)",
+                  border: "1px solid rgba(161,98,7,0.3)",
+                  cursor: "pointer",
+                }}
+              >
+                Выходной
               </button>
               <button
                 onClick={() => setShowMarkModal(false)}
@@ -445,7 +480,6 @@ interface DashboardPageProps {
   onShowCabinet: () => void;
   onSelectUser: (user: UserType) => void;
   onLogout: () => void;
-  onMarkDayInApp?: (today: string) => void;
 }
 
 export default function DashboardPage({
@@ -456,7 +490,6 @@ export default function DashboardPage({
   onShowCabinet,
   onSelectUser,
   onLogout,
-  onMarkDayInApp,
 }: DashboardPageProps) {
   const [participants, setParticipants] = useState<UserType[]>([]);
   const [allUsers, setAllUsers] = useState<UserType[]>([]); // все без фильтра локации
@@ -466,6 +499,7 @@ export default function DashboardPage({
   const [myData, setMyData] = useState<UserType>({
     ...currentUser,
     completed_dates: currentUser.completed_dates ?? [],
+    rest_dates: currentUser.rest_dates ?? [],
   });
   const [viewMode, setViewMode] = useState<"all" | "friends">("all");
   const [loading, setLoading] = useState(false);
@@ -522,7 +556,7 @@ export default function DashboardPage({
   useEffect(() => {
     const loc = currentUser.location || "";
     setSelectedLocation(loc);
-    setMyData({ ...currentUser, completed_dates: currentUser.completed_dates ?? [] }); // сбрасываем при смене пользователя
+    setMyData({ ...currentUser, completed_dates: currentUser.completed_dates ?? [], rest_dates: currentUser.rest_dates ?? [] }); // сбрасываем при смене пользователя
     loadParticipants(loc);
     loadAllUsers();
     loadFriendIds();
@@ -535,21 +569,22 @@ export default function DashboardPage({
     loadParticipants(val);
   };
 
-  const handleMarkDay = () => {
+  const handleMarkDay = (status: "done" | "rest" = "done") => {
     const addToday = (list: UserType[]) =>
       list.map((p) =>
         Number(p.id) === Number(currentUser.id)
-          ? { ...p, completed_dates: [...(p.completed_dates ?? []), today] }
+          ? status === "rest"
+            ? { ...p, rest_dates: [...(p.rest_dates ?? []), today] }
+            : { ...p, completed_dates: [...(p.completed_dates ?? []), today] }
           : p,
       );
-    setMyData((prev) => ({
-      ...prev,
-      completed_dates: [...(prev.completed_dates ?? []), today],
-    }));
+    setMyData((prev) =>
+      status === "rest"
+        ? { ...prev, rest_dates: [...(prev.rest_dates ?? []), today] }
+        : { ...prev, completed_dates: [...(prev.completed_dates ?? []), today] }
+    );
     setParticipants(addToday);
     setAllUsers(addToday);
-    // Синхронизируем currentUser в App.tsx, чтобы ProfilePage/CabinetPage видели актуальное состояние
-    onMarkDayInApp?.(today);
   };
 
   // «Все» — из participants (с фильтром локации).
@@ -568,8 +603,8 @@ export default function DashboardPage({
       // по дате регистрации: старые слева, новые справа
       return (a.created_at ?? "").localeCompare(b.created_at ?? "");
     }
-    const valA = sortBy === "streak" ? getStreak(a.completed_dates) : (a.completed_dates?.length ?? 0);
-    const valB = sortBy === "streak" ? getStreak(b.completed_dates) : (b.completed_dates?.length ?? 0);
+    const valA = sortBy === "streak" ? getStreak(a.completed_dates, a.rest_dates) : (a.completed_dates?.length ?? 0);
+    const valB = sortBy === "streak" ? getStreak(b.completed_dates, b.rest_dates) : (b.completed_dates?.length ?? 0);
     return sortDir === "desc" ? valB - valA : valA - valB;
   });
 
@@ -723,7 +758,7 @@ export default function DashboardPage({
 
                     {(() => {
                       const total = myData.completed_dates.length ?? 0;
-                      const streak = getStreak(myData.completed_dates);
+                      const streak = getStreak(myData.completed_dates, myData.rest_dates);
                       const joinDate = currentUser.created_at
                         ? new Date(currentUser.created_at).toLocaleDateString("ru-RU", {
                             day: "numeric",
