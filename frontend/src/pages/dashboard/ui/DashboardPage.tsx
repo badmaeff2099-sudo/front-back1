@@ -555,13 +555,18 @@ export default function DashboardPage({
     }
   };
 
+  // При монтировании — устанавливаем локацию и грузим участников
   useEffect(() => {
     const loc = currentUser.location || "";
     setSelectedLocation(loc);
-    setMyData({ ...currentUser, completed_dates: currentUser.completed_dates ?? [], rest_dates: currentUser.rest_dates ?? [] }); // сбрасываем при смене пользователя
     loadParticipants(loc);
     loadAllUsers();
     loadFriendIds();
+  }, []);
+
+  // При изменении прогресса (отметка дня) — обновляем только myData, локацию не трогаем
+  useEffect(() => {
+    setMyData({ ...currentUser, completed_dates: currentUser.completed_dates ?? [], rest_dates: currentUser.rest_dates ?? [] });
   }, [currentUser]);
 
   const handleLocationChange = (loc: string) => {
