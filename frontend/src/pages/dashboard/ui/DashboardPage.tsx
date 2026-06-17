@@ -28,6 +28,7 @@ import { getRank } from "@/entities/rank/model/ranks";
 import { UserAvatar } from "@/entities/user/ui/UserAvatar";
 import { getUsers, getFriends, markDay } from "@/shared/api/client";
 import { FriendsPanel } from "@/features/friends/ui/FriendsPanel";
+import { calcStreak } from "@/shared/lib/streak";
 import type { User as UserType } from "@/entities/user/model/types";
 
 const PARTICIPANTS_PER_PAGE = 20;
@@ -43,38 +44,6 @@ function todayISO(): string {
   return `${y}-${m}-${dd}`;
 }
 
-function getStreak(dates: string[] | undefined, restDates?: string[]): number {
-  const allDates = [...(dates ?? []), ...(restDates ?? [])];
-  if (!allDates.length) return 0;
-
-  const today = todayISO();
-  const yesterday = addDays(today, -1);
-  const restSet = new Set(restDates ?? []);
-
-  // Объединяем все отмеченные дни (done + rest), сортируем от нового к старому
-  const sorted = [...allDates].sort().reverse();
-
-  // Серия актуальна если последняя отметка — сегодня или вчера
-  if (sorted[0] !== today && sorted[0] !== yesterday) return 0;
-
-  let streak = 0;
-  let cursor = sorted[0];
-  let prevWasRest = false;
-
-  for (const d of sorted) {
-    if (d === cursor) {
-      const isRest = restSet.has(d);
-      // Два выходных подряд — стрик обнуляется
-      if (isRest && prevWasRest) break;
-      streak++;
-      prevWasRest = isRest;
-      cursor = addDays(cursor, -1);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
 
 /**
  * Строим 30 слотов текущего цикла, отсчитывая от даты регистрации.
@@ -169,7 +138,7 @@ interface UserColumnProps {
 function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnProps) {
   const dates = user.completed_dates ?? [];
   const restDates = user.rest_dates ?? [];
-  const streak = getStreak(dates, restDates);
+  const streak = calcStreak(dates, restDates);
   const total = dates.length;
   const rank = getRank(total);
   const slots = buildSlots(dates, today, user.created_at, restDates);
@@ -200,12 +169,14 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
       const res = await markDay(user.id, today, status);
       if (res.success) {
         onMarkDay?.(status);
-        toast.success(status === "rest" ? "Выходной отмечен!" : "День отмечен! 🎉");
+        if (res.streak_reset) {
+          toast.warning("Выходной отмечен. Два выходных подряд — серия обнулена 🔄");
+        } else {
+          toast.success(status === "rest" ? "Выходной отмечен! ☀️" : "День отмечен! 🎉");
+        }
       } else if (res.error === "Already marked for this date") {
         toast.warning("Сегодня уже отмечено!");
         onMarkDay?.(status);
-      } else if (res.error === "Two rest days in a row break the streak") {
-        toast.error("Два выходных подряд — стрик обнулится! Попробуй отметить день.");
       } else {
         toast.error(res.error || "Ошибка");
       }
@@ -611,8 +582,8 @@ export default function DashboardPage({
       // по дате регистрации: старые слева, новые справа
       return (a.created_at ?? "").localeCompare(b.created_at ?? "");
     }
-    const valA = sortBy === "streak" ? getStreak(a.completed_dates, a.rest_dates) : (a.completed_dates?.length ?? 0);
-    const valB = sortBy === "streak" ? getStreak(b.completed_dates, b.rest_dates) : (b.completed_dates?.length ?? 0);
+    const valA = sortBy === "streak" ? calcStreak(a.completed_dates, a.rest_dates) : (a.completed_dates?.length ?? 0);
+    const valB = sortBy === "streak" ? calcStreak(b.completed_dates, b.rest_dates) : (b.completed_dates?.length ?? 0);
     return sortDir === "desc" ? valB - valA : valA - valB;
   });
 
@@ -766,7 +737,7 @@ export default function DashboardPage({
 
                     {(() => {
                       const total = myData.completed_dates.length ?? 0;
-                      const streak = getStreak(myData.completed_dates, myData.rest_dates);
+                      const streak = calcStreak(myData.completed_dates, myData.rest_dates);
                       const joinDate = currentUser.created_at
                         ? new Date(currentUser.created_at).toLocaleDateString("ru-RU", {
                             day: "numeric",

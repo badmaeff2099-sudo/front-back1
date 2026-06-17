@@ -7,6 +7,7 @@ import { Separator } from "@/shared/ui/separator"
 import { getLeaderboard } from "@/shared/api/client"
 import { getRank, RANKS } from "@/entities/rank/model/ranks"
 import { UserAvatar } from "@/entities/user/ui/UserAvatar"
+import { calcStreak } from "@/shared/lib/streak"
 import type { User as UserType } from "@/entities/user/model/types"
 import "./LeaderboardPage.css"
 
@@ -14,24 +15,7 @@ interface LeaderboardUser extends UserType {
   total_days: number
   missed_days: number
   streak?: number
-}
-
-interface LeaderboardProps {
-  currentUser?: UserType
-  onBack: () => void
-}
-
-function calculateStreak(completedDates: string[] = []) {
-  if (!completedDates.length) return 0
-  const sorted = [...completedDates].sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
-  let streak = 0
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  for (let i = 0; i < sorted.length; i++) {
-    const checkDate = new Date(today); checkDate.setDate(today.getDate() - i)
-    if (sorted.includes(checkDate.toLocaleDateString("sv-SE"))) streak++
-    else break
-  }
-  return streak
+  rest_dates?: string[]
 }
 
 type SortKey = "total_days" | "streak" | "missed_days"
@@ -56,8 +40,8 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
   }
 
   const sortedUsers = [...users].sort((a, b) => {
-    let av = sortKey === "streak" ? calculateStreak(a.completed_dates) : a[sortKey] ?? 0
-    let bv = sortKey === "streak" ? calculateStreak(b.completed_dates) : b[sortKey] ?? 0
+    let av = sortKey === "streak" ? calcStreak(a.completed_dates, a.rest_dates) : a[sortKey] ?? 0
+    let bv = sortKey === "streak" ? calcStreak(b.completed_dates, b.rest_dates) : b[sortKey] ?? 0
     return sortDir === "desc" ? (bv as number) - (av as number) : (av as number) - (bv as number)
   })
 
@@ -113,7 +97,7 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
               <tbody>
                 {sortedUsers.map((user, index) => {
                   const rank = getRank(user.total_days)
-                  const streak = calculateStreak(user.completed_dates)
+                  const streak = calcStreak(user.completed_dates, user.rest_dates)
                   const cycle = user.total_days === 0 ? 0 : user.total_days % 30 || 30
                   const isMe = currentUser?.username === user.username
                   return (

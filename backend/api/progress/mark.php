@@ -54,6 +54,7 @@ try {
     }
 
     // Если отмечаем выходной — проверяем, не был ли предыдущий день тоже выходным
+    $streak_reset = false;
     if ($status === 'rest') {
         $prevDate = date('Y-m-d', strtotime($day_date . ' -1 day'));
         $prevCheck = $pdo->prepare("
@@ -64,11 +65,8 @@ try {
         $prevRow = $prevCheck->fetch(PDO::FETCH_ASSOC);
 
         if ($prevRow && $prevRow['status'] === 'rest') {
-            echo json_encode([
-                "success" => false,
-                "error" => "Two rest days in a row break the streak"
-            ], JSON_UNESCAPED_UNICODE);
-            exit;
+            // Два выходных подряд — разрешаем запись, но сообщаем об обнулении стрика
+            $streak_reset = true;
         }
     }
 
@@ -83,7 +81,8 @@ try {
     ]);
 
     echo json_encode([
-        "success" => true
+        "success" => true,
+        "streak_reset" => $streak_reset
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {

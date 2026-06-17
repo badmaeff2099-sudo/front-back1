@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../../db.php';
+require_once '../streak_helper.php';
 
 $pdo = getPDO();
 
@@ -58,11 +59,14 @@ try {
         }
     }
 
+    $streak = calcStreak($completed_dates, $rest_dates);
+
     echo json_encode([
         "success" => true,
         "completed_dates" => $completed_dates,
         "rest_dates" => $rest_dates,
-        "total" => count($completed_dates)
+        "total" => count($completed_dates),
+        "streak" => $streak
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {
