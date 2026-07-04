@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import {
   User,
   Trophy,
   LogOut,
   MapPin,
-  ArrowUpDown,
   Flame,
   Users,
   LayoutDashboard,
@@ -28,6 +28,7 @@ import { getRank } from "@/entities/rank/model/ranks";
 import { UserAvatar } from "@/entities/user/ui/UserAvatar";
 import { getUsers, getFriends, markDay } from "@/shared/api/client";
 import { FriendsPanel } from "@/features/friends/ui/FriendsPanel";
+import { calcStreak } from "@/shared/lib/streak";
 import type { User as UserType } from "@/entities/user/model/types";
 
 const PARTICIPANTS_PER_PAGE = 20;
@@ -36,64 +37,92 @@ const CYCLE = 30; // квадратиков в столбце
 /* ─── Helpers ─────────────────────────────────────────────────── */
 
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
 }
 
-function getStreak(dates: string[]): number {
-  if (!dates.length) return 0;
-  const sorted = [...dates].sort().reverse();
-  const today = todayISO();
-  let streak = 0;
-  let cursor = today;
-  for (const d of sorted) {
-    if (d === cursor) {
-      streak++;
-      const prev = new Date(cursor);
-      prev.setDate(prev.getDate() - 1);
-      cursor = prev.toISOString().slice(0, 10);
-    } else if (d < cursor) break;
-  }
-  return streak;
-}
 
 /**
- * Строим 30 слотов (позиции 0..29 снизу вверх, т.е. отображаем 29..0).
- * Слот = один «оборот» из 30 дней.
- * cycle = Math.floor(totalDone / 30) — номер текущего цикла.
- * posInCycle = totalDone % 30 — сколько выполнено в текущем цикле (0..29).
- * Слоты 0..posInCycle-1 = выполнены (зелёные).
- * Слот posInCycle = сегодня (кнопка, если не отмечен — жёлтый, если отмечен — зелёный).
- * Слоты до posInCycle (прошедшие в этом цикле, уже «прошли» без отметки) = красные.
+ * Строим 30 слотов текущего цикла, отсчитывая от даты регистрации.
  *
- * Нам важна не дата, а позиция в цикле и пропуски.
- * Проще: берём 30 дат подряд назад, смотрим статус.
+ * Логика:
+ * - День 1 = дата регистрации (registeredAt), день 2 = +1 день и т.д.
+ * - Цикл 1 = дни 1..30, цикл 2 = дни 31..60 и т.д.
+ * - Определяем текущий цикл по тому, в каком диапазоне находится сегодня.
+ * - Отображаем 30 слотов текущего цикла: слот 0 = самый нижний (первый день цикла).
+ * - Слоты заполняются снизу вверх: пришёл день — закрасили снизу.
+ * - Состояния: done (зелёный), missed (красный), today (жёлтый/зелёный), future (серый).
  */
 interface SlotInfo {
-  /** порядковый номер слота снизу: 0 = самый нижний */
+  /** порядковый номер слота снизу: 0 = самый нижний (первый день цикла) */
   slotIdx: number;
   date: string;
-  state: "done" | "missed" | "today" | "future";
+  state: "done" | "missed" | "today" | "future" | "rest";
 }
 
-function buildSlots(completedDates: string[], today: string): SlotInfo[] {
-  // Берём последние 30 дней (включая сегодня)
+/** Прибавить N дней к строке "YYYY-MM-DD" без Date-объектов (нет проблем с таймзоной) */
+function addDays(dateStr: string, n: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + n); // локальное время, без UTC-сдвига
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+/** Разность дат в днях (b - a), строки "YYYY-MM-DD" */
+function diffDays(a: string, b: string): number {
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  const da = new Date(ay, am - 1, ad);
+  const db = new Date(by, bm - 1, bd);
+  return Math.round((db.getTime() - da.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function buildSlots(completedDates: string[] | undefined, today: string, registeredAt?: string, restDates?: string[]): SlotInfo[] {
+  completedDates = completedDates ?? [];
+  const restSet = new Set(restDates ?? []);
+
+  // Если нет даты регистрации — используем сегодня как точку отсчёта
+  const startStr = registeredAt ? registeredAt.slice(0, 10) : today;
+
+  const daysSinceStart = diffDays(startStr, today);
+
+  // Номер текущего цикла (0-based)
+  const cycleIndex = daysSinceStart < 0 ? 0 : Math.floor(daysSinceStart / CYCLE);
+
+  // Первый день текущего цикла (строка)
+  const cycleStartStr = addDays(startStr, cycleIndex * CYCLE);
+
+  const doneSet = new Set(completedDates);
+
   const slots: SlotInfo[] = [];
-  for (let i = CYCLE - 1; i >= 0; i--) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().slice(0, 10);
-    const slotIdx = CYCLE - 1 - i; // 0=самый старый, 29=сегодня
+  for (let i = 0; i < CYCLE; i++) {
+    const dateStr = addDays(cycleStartStr, i);
+
     let state: SlotInfo["state"];
     if (dateStr === today) {
-      state = completedDates.includes(dateStr) ? "done" : "today";
-    } else if (completedDates.includes(dateStr)) {
+      if (doneSet.has(dateStr)) state = "done";
+      else if (restSet.has(dateStr)) state = "rest";
+      else state = "today";
+    } else if (dateStr > today) {
+      state = "future";
+    } else if (doneSet.has(dateStr)) {
       state = "done";
+    } else if (restSet.has(dateStr)) {
+      state = "rest";
     } else {
       state = "missed";
     }
-    slots.push({ slotIdx, date: dateStr, state });
+
+    slots.push({ slotIdx: i, date: dateStr, state });
   }
-  return slots; // slots[0] = 30 дней назад, slots[29] = сегодня
+
+  // slots[0] = первый день цикла (нижний квадратик), slots[29] = последний (верхний)
+  return slots;
 }
 
 /* ─── Vertical column for one user ───────────────────────────── */
@@ -102,29 +131,52 @@ interface UserColumnProps {
   user: UserType;
   isMe: boolean;
   today: string;
-  onMarkDay?: () => void;
+  onMarkDay?: (status: "done" | "rest") => void;
   onSelectUser: (u: UserType) => void;
 }
 
 function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnProps) {
-  const streak = getStreak(user.completed_dates);
-  const total = user.completed_dates.length;
+  const dates = user.completed_dates ?? [];
+  const restDates = user.rest_dates ?? [];
+  const streak = calcStreak(dates, restDates);
+  const total = dates.length;
   const rank = getRank(total);
-  const slots = buildSlots(user.completed_dates, today);
-  const todayMarked = user.completed_dates.includes(today);
-  const [marking, setMarking] = useState(false);
+  const slots = buildSlots(dates, today, user.created_at, restDates);
+  const todayMarked = dates.includes(today) || restDates.includes(today);
 
-  const handleMark = async () => {
+  // Номер текущего цикла (1-based)
+  const cycleNumber = (() => {
+    const startStr = user.created_at ? user.created_at.slice(0, 10) : today;
+    const startDate = new Date(startStr);
+    const todayDate = new Date(today);
+    const daysSinceStart = Math.floor(
+      (todayDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    return daysSinceStart < 0 ? 1 : Math.floor(daysSinceStart / CYCLE) + 1;
+  })();
+  const [marking, setMarking] = useState(false);
+  const [showMarkModal, setShowMarkModal] = useState(false);
+
+  const handleMark = () => {
     if (!isMe || todayMarked || marking) return;
+    setShowMarkModal(true);
+  };
+
+  const handleMarkConfirm = async (status: "done" | "rest" = "done") => {
+    setShowMarkModal(false);
     setMarking(true);
     try {
-      const res = await markDay(user.id, today);
+      const res = await markDay(user.id, today, status);
       if (res.success) {
-        onMarkDay?.();
-        toast.success("День отмечен! 🎉");
+        onMarkDay?.(status);
+        if (res.streak_reset) {
+          toast.warning("Выходной отмечен. Два выходных подряд — серия обнулена 🔄");
+        } else {
+          toast.success(status === "rest" ? "Выходной отмечен! ☀️" : "День отмечен! 🎉");
+        }
       } else if (res.error === "Already marked for this date") {
         toast.warning("Сегодня уже отмечено!");
-        onMarkDay?.();
+        onMarkDay?.(status);
       } else {
         toast.error(res.error || "Ошибка");
       }
@@ -146,11 +198,12 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
     >
       {/* Avatar + name */}
       <Tooltip>
-        <TooltipTrigger asChild>
+        <TooltipTrigger render={
           <button
             onClick={() => onSelectUser(user)}
             className="flex flex-col items-center gap-1.5 group"
-          >
+          />
+        }>
             <UserAvatar
               avatarUrl={user.avatar_url}
               username={user.username}
@@ -163,36 +216,40 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
             >
               {user.username}
             </span>
-          </button>
         </TooltipTrigger>
-        <TooltipContent>
-          <p>
-            {rank.icon} {rank.title}
-            {isMe ? " · Вы" : ""}
-          </p>
+        <TooltipContent className="max-w-[200px]">
+          <div className="flex flex-col gap-1">
+            <p>
+              {rank.icon} {rank.title}
+              {isMe ? " · Вы" : ""}
+            </p>
+            {user.goal && (
+              <p className="text-[11px] text-muted-foreground leading-snug border-t border-white/10 pt-1 mt-0.5">
+                🎯 {user.goal}
+              </p>
+            )}
+          </div>
         </TooltipContent>
       </Tooltip>
 
       {/* Streak */}
       <div className="flex items-center gap-1">
+        <Flame className="h-3 w-3 text-orange-400 shrink-0" />
         {streak > 0 ? (
-          <>
-            <Flame className="h-3 w-3 text-orange-400 shrink-0" />
-            <span className="text-[11px] font-bold text-orange-400 tabular-nums">
-              {streak}
-            </span>
-          </>
+          <span className="text-[11px] font-bold text-orange-400 tabular-nums">{streak}</span>
         ) : (
-          <span className="text-[10px] text-muted-foreground/30 tabular-nums">—</span>
+          <span className="text-[10px] text-muted-foreground/30">—</span>
         )}
       </div>
 
-      {/* 30 squares — rendered top to bottom (slot 29 on top, slot 0 on bottom) */}
+      {/* 30 squares — rendered top to bottom (slot 29 on top, slot 0 on bottom — fills bottom-up) */}
       <div className="flex flex-col gap-[3px]">
         {[...slots].reverse().map((slot) => {
           const isToday = slot.state === "today";
           const isDone = slot.state === "done";
           const isMissed = slot.state === "missed";
+          const isFuture = slot.state === "future";
+          const isRest = slot.state === "rest";
 
           let bg = "#1e1e1e";
           let border = "1px solid #2a2a2a";
@@ -201,33 +258,40 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
           let title = slot.date;
 
           if (isDone) {
-            bg = "#166534"; // green-800
+            bg = "#166534";
             border = "1px solid #15803d";
             shadow = "0 0 6px rgba(34,197,94,0.35)";
             title = `✓ ${slot.date}`;
+          } else if (isRest) {
+            bg = "#facc15";
+            border = "1px solid #fde047";
+            shadow = "0 0 6px rgba(250,204,21,0.4)";
+            title = `☀ Выходной · ${slot.date}`;
           } else if (isMissed) {
             bg = "#3b0f0f";
             border = "1px solid #7f1d1d";
             title = `✗ ${slot.date}`;
+          } else if (isFuture) {
+            bg = "#111";
+            border = "1px solid #1e1e1e";
+            title = slot.date;
           } else if (isToday && isMe) {
-            bg = todayMarked ? "#166534" : "#3d2e00";
-            border = todayMarked ? "1px solid #15803d" : "1.5px solid #faad14";
-            shadow = todayMarked
-              ? "0 0 6px rgba(34,197,94,0.35)"
-              : "0 0 8px rgba(250,173,20,0.4)";
-            cursor = todayMarked ? "default" : "pointer";
-            title = todayMarked ? `✓ Сегодня` : "Нажмите чтобы отметить";
+            bg = "#3d2e00";
+            border = "1.5px solid #faad14";
+            shadow = "0 0 8px rgba(250,173,20,0.4)";
+            cursor = "pointer";
+            title = "Нажмите чтобы отметить";
           } else if (isToday && !isMe) {
-            bg = todayMarked ? "#166534" : "#3d2e00";
-            border = todayMarked ? "1px solid #15803d" : "1.5px solid #faad14";
-            shadow = todayMarked ? "0 0 6px rgba(34,197,94,0.35)" : "0 0 6px rgba(250,173,20,0.3)";
-            title = todayMarked ? `✓ Сегодня` : "Сегодня";
+            bg = "#3d2e00";
+            border = "1.5px solid #faad14";
+            shadow = "0 0 6px rgba(250,173,20,0.3)";
+            title = "Сегодня";
           }
 
           if (isToday && isMe && !todayMarked) {
             return (
               <Tooltip key={slot.date}>
-                <TooltipTrigger asChild>
+                <TooltipTrigger render={
                   <button
                     onClick={handleMark}
                     disabled={marking}
@@ -245,7 +309,7 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
                     }}
                     aria-label="Отметить сегодня"
                   />
-                </TooltipTrigger>
+                } />
                 <TooltipContent>
                   <p>{title}</p>
                 </TooltipContent>
@@ -255,7 +319,7 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
 
           return (
             <Tooltip key={slot.date}>
-              <TooltipTrigger asChild>
+              <TooltipTrigger render={
                 <div
                   style={{
                     width: 36,
@@ -268,7 +332,7 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
                     flexShrink: 0,
                   }}
                 />
-              </TooltipTrigger>
+              } />
               <TooltipContent>
                 <p>{title}</p>
               </TooltipContent>
@@ -277,10 +341,102 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
         })}
       </div>
 
-      {/* Total days */}
-      <span className="text-[10px] text-muted-foreground/40 tabular-nums mt-0.5">
-        {total}д
-      </span>
+      {/* Total days — внизу колонки, тултип с циклом */}
+      <Tooltip>
+        <TooltipTrigger render={
+          <div className="flex items-center gap-1 mt-0.5 cursor-default" />
+        }>
+          <Trophy className="h-2.5 w-2.5 text-muted-foreground/50 shrink-0" />
+          <span className="text-[10px] text-muted-foreground/50 tabular-nums">{total}</span>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Всего дней: {total} · Цикл {cycleNumber}</p>
+        </TooltipContent>
+      </Tooltip>
+
+      {showMarkModal && createPortal(
+        <div
+          onClick={() => setShowMarkModal(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            backgroundColor: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              margin: "0 20px", maxWidth: 380, width: "100%",
+              background: "linear-gradient(160deg, #0f0f1a 0%, #0a0a14 100%)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              borderTop: "1px solid rgba(255,255,255,0.13)",
+              borderRadius: 16, padding: "36px 32px 28px",
+              boxShadow: "0 40px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.08)",
+              textAlign: "center",
+            }}
+          >
+            <div style={{
+              width: 40, height: 2,
+              background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)",
+              margin: "0 auto 28px",
+              borderRadius: 2,
+            }} />
+            <p style={{
+              color: "rgba(255,255,255,0.75)", fontSize: 13.5,
+              lineHeight: 1.75, fontWeight: 400, margin: 0,
+              letterSpacing: "0.01em",
+            }}>
+              Помни! Здесь ты не соревнуешься с другими, ты соревнуешься с самим собой, работая не над количеством, а над качеством каждого дня!
+            </p>
+            <div style={{
+              marginTop: 28,
+              height: "1px",
+              background: "rgba(255,255,255,0.05)",
+              marginBottom: 24,
+            }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => handleMarkConfirm("done")}
+                style={{
+                  flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 13,
+                  fontWeight: 600, color: "#fff", letterSpacing: "0.03em",
+                  background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                  border: "1px solid rgba(139,92,246,0.3)",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 16px rgba(99,102,241,0.25)",
+                }}
+              >
+                Отметить
+              </button>
+              <button
+                onClick={() => handleMarkConfirm("rest")}
+                style={{
+                  flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 13,
+                  fontWeight: 600, color: "#a16207", letterSpacing: "0.03em",
+                  background: "rgba(161,98,7,0.1)",
+                  border: "1px solid rgba(161,98,7,0.3)",
+                  cursor: "pointer",
+                }}
+              >
+                Выходной
+              </button>
+              <button
+                onClick={() => setShowMarkModal(false)}
+                style={{
+                  flex: 1, padding: "10px 0", borderRadius: 8, fontSize: 13,
+                  fontWeight: 500, color: "rgba(255,255,255,0.3)",
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  cursor: "pointer", letterSpacing: "0.02em",
+                }}
+              >
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
@@ -295,6 +451,7 @@ interface DashboardPageProps {
   onShowCabinet: () => void;
   onSelectUser: (user: UserType) => void;
   onLogout: () => void;
+  onMarkDayInApp?: (today: string, status: "done" | "rest") => void;
 }
 
 export default function DashboardPage({
@@ -305,15 +462,25 @@ export default function DashboardPage({
   onShowCabinet,
   onSelectUser,
   onLogout,
+  onMarkDayInApp,
 }: DashboardPageProps) {
   const [participants, setParticipants] = useState<UserType[]>([]);
-  const [friendsList, setFriendsList] = useState<UserType[]>([]);
+  const [allUsers, setAllUsers] = useState<UserType[]>([]); // все без фильтра локации
+  const [friendIds, setFriendIds] = useState<Set<number>>(new Set());
+  // Локальная копия текущего пользователя — обновляется при отметке дня,
+  // не зависит от фильтра локации и наличия в participants
+  const [myData, setMyData] = useState<UserType>({
+    ...currentUser,
+    completed_dates: currentUser.completed_dates ?? [],
+    rest_dates: currentUser.rest_dates ?? [],
+  });
   const [viewMode, setViewMode] = useState<"all" | "friends">("all");
   const [loading, setLoading] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState("");
   const [locations, setLocations] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+  const [sortBy, setSortBy] = useState<"streak" | "total" | "default">("default");
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const today = todayISO();
@@ -340,19 +507,37 @@ export default function DashboardPage({
     }
   };
 
+  // Загружаем ВСЕХ пользователей (без фильтра локации) — источник данных для вкладки «Друзья»
+  const loadAllUsers = async () => {
+    const res = await getUsers("");
+    if (res.success) {
+      setAllUsers(res.users);
+    }
+  };
+
+  // Загружаем только ID друзей
+  const loadFriendIds = async () => {
+    const res = await getFriends(currentUser.id);
+    if (res.success) {
+      const ids = new Set<number>(
+        (res.friends ?? []).map((f: any) => Number(f.id))
+      );
+      setFriendIds(ids);
+    }
+  };
+
+  // При монтировании — устанавливаем локацию и грузим участников
   useEffect(() => {
     const loc = currentUser.location || "";
     setSelectedLocation(loc);
     loadParticipants(loc);
-    getFriends(currentUser.id).then((res) => {
-      if (res.success) {
-        const friends = (res.friends ?? []).map((f: any) => ({
-          ...f,
-          completed_dates: f.completed_dates ?? [],
-        }));
-        setFriendsList(friends);
-      }
-    });
+    loadAllUsers();
+    loadFriendIds();
+  }, []);
+
+  // При изменении прогресса (отметка дня) — обновляем только myData, локацию не трогаем
+  useEffect(() => {
+    setMyData({ ...currentUser, completed_dates: currentUser.completed_dates ?? [], rest_dates: currentUser.rest_dates ?? [] });
   }, [currentUser]);
 
   const handleLocationChange = (loc: string) => {
@@ -362,34 +547,45 @@ export default function DashboardPage({
     loadParticipants(val);
   };
 
-  const handleMarkDay = () => {
-    setParticipants((prev) =>
-      prev.map((p) =>
-        p.id === currentUser.id
-          ? { ...p, completed_dates: [...(p.completed_dates ?? []), today] }
+  const handleMarkDay = (status: "done" | "rest" = "done") => {
+    const addToday = (list: UserType[]) =>
+      list.map((p) =>
+        Number(p.id) === Number(currentUser.id)
+          ? status === "rest"
+            ? { ...p, rest_dates: [...(p.rest_dates ?? []), today] }
+            : { ...p, completed_dates: [...(p.completed_dates ?? []), today] }
           : p,
-      ),
+      );
+    setMyData((prev) =>
+      status === "rest"
+        ? { ...prev, rest_dates: [...(prev.rest_dates ?? []), today] }
+        : { ...prev, completed_dates: [...(prev.completed_dates ?? []), today] }
     );
+    setParticipants(addToday);
+    setAllUsers(addToday);
+    onMarkDayInApp?.(today, status);
   };
 
-  const myEntry = participants.find(
-    (p) => Number(p.id) === Number(currentUser.id),
-  );
-
-  // Others list
+  // «Все» — из participants (с фильтром локации).
+  // «Друзья» — из allUsers (без фильтра локации), отфильтрованных по friendIds.
   const othersBase = (() => {
-    const list =
-      viewMode === "friends"
-        ? friendsList.filter((f) => Number(f.id) !== Number(currentUser.id))
-        : participants.filter((p) => Number(p.id) !== Number(currentUser.id));
-    return list;
+    if (viewMode === "friends") {
+      return allUsers.filter(
+        (u) => Number(u.id) !== Number(currentUser.id) && friendIds.has(Number(u.id))
+      );
+    }
+    return participants.filter((p) => Number(p.id) !== Number(currentUser.id));
   })();
 
-  const sortedOthers = [...othersBase].sort((a, b) =>
-    sortDir === "desc"
-      ? getStreak(b.completed_dates) - getStreak(a.completed_dates)
-      : getStreak(a.completed_dates) - getStreak(b.completed_dates),
-  );
+  const sortedOthers = [...othersBase].sort((a, b) => {
+    if (sortBy === "default") {
+      // по дате регистрации: старые слева, новые справа
+      return (a.created_at ?? "").localeCompare(b.created_at ?? "");
+    }
+    const valA = sortBy === "streak" ? calcStreak(a.completed_dates, a.rest_dates) : (a.completed_dates?.length ?? 0);
+    const valB = sortBy === "streak" ? calcStreak(b.completed_dates, b.rest_dates) : (b.completed_dates?.length ?? 0);
+    return sortDir === "desc" ? valB - valA : valA - valB;
+  });
 
   const paginated = sortedOthers.slice(
     (currentPage - 1) * PARTICIPANTS_PER_PAGE,
@@ -540,8 +736,8 @@ export default function DashboardPage({
                     )}
 
                     {(() => {
-                      const total = myEntry?.completed_dates.length ?? 0;
-                      const streak = myEntry ? getStreak(myEntry.completed_dates) : 0;
+                      const total = myData.completed_dates.length ?? 0;
+                      const streak = calcStreak(myData.completed_dates, myData.rest_dates);
                       const joinDate = currentUser.created_at
                         ? new Date(currentUser.created_at).toLocaleDateString("ru-RU", {
                             day: "numeric",
@@ -621,40 +817,67 @@ export default function DashboardPage({
                             Все
                           </button>
                           <button
-                            onClick={() => { setViewMode("friends"); setCurrentPage(1); }}
+                            onClick={() => { setViewMode("friends"); setCurrentPage(1); loadAllUsers(); loadFriendIds(); }}
                             className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${viewMode === "friends" ? "bg-brand/20 text-brand" : "text-muted-foreground hover:text-foreground"}`}
                           >
                             <Users className="h-2.5 w-2.5" /> Друзья
                           </button>
                         </div>
-                        <button
-                          onClick={() => { setSortDir((d) => d === "desc" ? "asc" : "desc"); setCurrentPage(1); }}
-                          className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors ml-auto"
-                        >
-                          <ArrowUpDown className="h-3 w-3" />
-                          По стрику
-                        </button>
+                        <div className="flex items-center gap-1 ml-auto">
+                          <button
+                            onClick={() => {
+                              if (sortBy === "streak") {
+                                // 2-й клик — сброс на дефолт
+                                setSortBy("default");
+                              } else {
+                                // 1-й клик — сортировка по стрику убыванием
+                                setSortBy("streak");
+                                setSortDir("desc");
+                              }
+                              setCurrentPage(1);
+                            }}
+                            title="По стрику"
+                            className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] transition-colors ${sortBy === "streak" ? "bg-orange-500/20 text-orange-400" : "text-muted-foreground hover:text-foreground"}`}
+                          >
+                            🔥 {sortBy === "streak"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (sortBy === "total") {
+                                // 2-й клик — сброс на дефолт
+                                setSortBy("default");
+                              } else {
+                                // 1-й клик — сортировка по количеству дней убыванием
+                                setSortBy("total");
+                                setSortDir("desc");
+                              }
+                              setCurrentPage(1);
+                            }}
+                            title="По количеству дней"
+                            className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[12px] transition-colors ${sortBy === "total" ? "bg-brand/20 text-brand" : "text-muted-foreground hover:text-foreground"}`}
+                          >
+                            🏆 {sortBy === "total"}
+                          </button>
+                        </div>
                       </div>
 
                       {/* Columns area: sticky me + scrollable others */}
                       <div className="flex overflow-hidden" style={{ minHeight: 0 }}>
-                        {/* Sticky: current user column */}
-                        {myEntry && (
-                          <div
-                            className="shrink-0 border-r border-brand/20 bg-[#0d0d0d]"
-                            style={{ zIndex: 10 }}
-                          >
-                            <div className="py-4 px-1">
-                              <UserColumn
-                                user={myEntry}
-                                isMe={true}
-                                today={today}
-                                onMarkDay={handleMarkDay}
-                                onSelectUser={onSelectUser}
-                              />
-                            </div>
+                        {/* Sticky: current user column — всегда из myData, не зависит от фильтра локации */}
+                        <div
+                          className="shrink-0 border-r border-brand/20 bg-[#0d0d0d]"
+                          style={{ zIndex: 10 }}
+                        >
+                          <div className="py-4 px-1">
+                            <UserColumn
+                              user={myData}
+                              isMe={true}
+                              today={today}
+                              onMarkDay={handleMarkDay}
+                              onSelectUser={onSelectUser}
+                            />
                           </div>
-                        )}
+                        </div>
 
                         {/* Scrollable: others */}
                         <div

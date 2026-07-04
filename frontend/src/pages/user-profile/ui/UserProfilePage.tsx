@@ -7,6 +7,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { getRank, RANKS } from "@/entities/rank/model/ranks";
 import { UserAvatar } from "@/entities/user/ui/UserAvatar";
 import { FriendButton } from "@/features/friends/ui/FriendButton";
+import { calcStreak, calcLongestStreak } from "@/shared/lib/streak";
 import type { User as UserType } from "@/entities/user/model/types";
 
 const DAYS_TO_SHOW = 30;
@@ -17,37 +18,6 @@ interface UserProfileProps {
   onBack: () => void;
 }
 
-function calculateCurrentStreak(dates: string[], todayDate: Date): number {
-  if (!dates.length) return 0;
-  let streak = 0;
-  const check = new Date(todayDate);
-  while (true) {
-    const s = check.toLocaleDateString("sv-SE");
-    if (dates.includes(s)) {
-      streak++;
-      check.setDate(check.getDate() - 1);
-    } else break;
-  }
-  return streak;
-}
-
-function getLongestStreak(dates: string[]): number {
-  if (!dates.length) return 0;
-  const sorted = [...dates].sort();
-  let longest = 1,
-    current = 1;
-  for (let i = 1; i < sorted.length; i++) {
-    const diff =
-      (new Date(sorted[i]).getTime() - new Date(sorted[i - 1]).getTime()) /
-      86400000;
-    if (diff === 1) {
-      current++;
-      longest = Math.max(longest, current);
-    } else current = 1;
-  }
-  return longest;
-}
-
 export default function UserProfile({
   user,
   currentUser,
@@ -56,6 +26,16 @@ export default function UserProfile({
   const completedDates = Array.from(
     new Set(
       (user?.completed_dates || []).filter(Boolean).map((d) => {
+        const x = new Date(d);
+        x.setHours(0, 0, 0, 0);
+        return x.toLocaleDateString("sv-SE");
+      }),
+    ),
+  ).sort();
+
+  const restDates = Array.from(
+    new Set(
+      (user?.rest_dates || []).filter(Boolean).map((d) => {
         const x = new Date(d);
         x.setHours(0, 0, 0, 0);
         return x.toLocaleDateString("sv-SE");
@@ -85,8 +65,8 @@ export default function UserProfile({
     totalCycleDays === 0 ? 0 : totalCycleDays % DAYS_TO_SHOW || DAYS_TO_SHOW;
   const progressPercent = (currentCycleDays / DAYS_TO_SHOW) * 100;
 
-  const currentStreak = calculateCurrentStreak(completedDates, todayDate);
-  const longestStreak = getLongestStreak(completedDates);
+  const currentStreak = calcStreak(completedDates, restDates);
+  const longestStreak = calcLongestStreak(completedDates, restDates);
   const rank = getRank(completedDays);
   const rankPercent = Math.min((completedDays / 365) * 100, 100);
 
@@ -320,7 +300,7 @@ export default function UserProfile({
                 История активности
               </h4>
               <p className="text-xs text-muted-foreground mb-4">
-                Зелёные — выполненные дни. Красные — пропущенные.
+                Зелёные — выполненные дни. Жёлтые — выходные. Красные — пропущенные.
               </p>
               <div className="flex gap-1.5 flex-wrap">
                 {[...Array(DAYS_TO_SHOW)].map((_, index) => {
@@ -330,9 +310,11 @@ export default function UserProfile({
                   const dateStr = cellDate.toLocaleDateString("sv-SE");
                   const isToday = dateStr === today;
                   const isCompleted = completedDates.includes(dateStr);
+                  const isRest = restDates.includes(dateStr);
                   let color = "#1e1e1e";
                   if (cellDate > todayDate) color = "#1e1e1e";
                   else if (isCompleted) color = "#22c55e";
+                  else if (isRest) color = "#eab308";
                   else if (cellDate < todayDate) color = "#ef4444";
                   else color = "#2a2a2a";
                   return (

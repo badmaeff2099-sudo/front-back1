@@ -23,50 +23,57 @@ try {
     $status = $data['status'] ?? 'done';
 
     if (!$user_id || !$day_date) {
-
         echo json_encode([
             "success" => false,
             "message" => "user_id and day_date required"
         ], JSON_UNESCAPED_UNICODE);
-
         exit;
     }
 
-    $check = $pdo->prepare("
-        SELECT id
-        FROM progress
-        WHERE user_id = :user_id
-        AND day_date = :day_date
-    ");
+    if (!in_array($status, ['done', 'rest'])) {
+        echo json_encode([
+            "success" => false,
+            "error" => "Invalid status"
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 
-    $check->execute([
-        ':user_id' => $user_id,
-        ':day_date' => $day_date
-    ]);
+    // Проверяем, не отмечен ли уже этот день
+    $check = $pdo->prepare("
+        SELECT id FROM progress
+        WHERE user_id = :user_id AND day_date = :day_date
+    ");
+    $check->execute([':user_id' => $user_id, ':day_date' => $day_date]);
 
     if ($check->fetch()) {
-
         echo json_encode([
             "success" => false,
             "error" => "Already marked for this date"
         ], JSON_UNESCAPED_UNICODE);
-
         exit;
     }
 
-    $stmt = $pdo->prepare("
-        INSERT INTO progress (
-            user_id,
-            day_date,
-            status
-        )
-        VALUES (
-            :user_id,
-            :day_date,
-            :status
-        )
-    ");
+    // Если отмечаем выходной — проверяем, не был ли предыдущий день тоже выходным
+    $streak_reset = false;
+    if ($status === 'rest') {
+        $prevDate = date('Y-m-d', strtotime($day_date . ' -1 day'));
+        $prevCheck = $pdo->prepare("
+            SELECT status FROM progress
+            WHERE user_id = :user_id AND day_date = :day_date
+        ");
+        $prevCheck->execute([':user_id' => $user_id, ':day_date' => $prevDate]);
+        $prevRow = $prevCheck->fetch(PDO::FETCH_ASSOC);
 
+        if ($prevRow && $prevRow['status'] === 'rest') {
+            // Два выходных подряд — разрешаем запись, но сообщаем об обнулении стрика
+            $streak_reset = true;
+        }
+    }
+
+    $stmt = $pdo->prepare("
+        INSERT INTO progress (user_id, day_date, status)
+        VALUES (:user_id, :day_date, :status)
+    ");
     $stmt->execute([
         ':user_id' => $user_id,
         ':day_date' => $day_date,
@@ -74,7 +81,8 @@ try {
     ]);
 
     echo json_encode([
-        "success" => true
+        "success" => true,
+        "streak_reset" => $streak_reset
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {

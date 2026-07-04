@@ -9,6 +9,7 @@ export interface User {
   goal?: string
   daily_actions?: string
   completed_dates: string[]
+  rest_dates?: string[]
   created_at?: string
   joinDate?: string
   avatar_url?: string

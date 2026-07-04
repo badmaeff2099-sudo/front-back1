@@ -11,6 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../db.php';
+require_once 'streak_helper.php';
 
 $pdo = getPDO();
 
@@ -35,10 +36,18 @@ try {
             COALESCE(
                 json_agg(p.day_date)
                 FILTER (
-                    WHERE p.day_date IS NOT NULL
+                    WHERE p.status = 'done'
                 ),
                 '[]'
-            ) AS completed_dates
+            ) AS completed_dates,
+
+            COALESCE(
+                json_agg(p.day_date)
+                FILTER (
+                    WHERE p.status = 'rest'
+                ),
+                '[]'
+            ) AS rest_dates
 
         FROM users u
 
@@ -64,88 +73,26 @@ try {
             (int)$user['total_days'];
 
         if (is_string($user['completed_dates'])) {
-
-            $user['completed_dates'] =
-                json_decode(
-                    $user['completed_dates'],
-                    true
-                );
+            $user['completed_dates'] = json_decode($user['completed_dates'], true);
         }
-
-        /*
-            Считаем пропущенные дни
-        */
-
-        $createdAt =
-    new DateTime($user['created_at']);
-
-$today =
-    new DateTime();
-
-$createdAt->setTime(0, 0, 0);
-$today->setTime(0, 0, 0);
-
-/*
-    Только полностью прошедшие дни
-*/
-
-$daysSinceRegistration =
-    $createdAt->diff($today)->days;
-
-/*
-    Пропущенные дни
-*/
-
-$missedDays =
-    $daysSinceRegistration -
-    $user['total_days'];
-
-if ($missedDays < 0) {
-    $missedDays = 0;
-}
-
-$user['missed_days'] =
-    $missedDays;
-
-        /*
-            Серия подряд
-        */
-
-        $completedDates =
-            $user['completed_dates'];
-
-        rsort($completedDates);
-
-        $streak = 0;
-
-        $currentDate =
-            new DateTime();
-
-        while (true) {
-
-            $dateStr =
-                $currentDate
-                    ->format('Y-m-d');
-
-            if (
-                in_array(
-                    $dateStr,
-                    $completedDates
-                )
-            ) {
-
-                $streak++;
-
-                $currentDate->modify('-1 day');
-
-            } else {
-
-                break;
-            }
+        if (is_string($user['rest_dates'])) {
+            $user['rest_dates'] = json_decode($user['rest_dates'], true);
         }
+        $user['completed_dates'] = $user['completed_dates'] ?? [];
+        $user['rest_dates'] = $user['rest_dates'] ?? [];
 
-        $user['streak'] =
-            $streak;
+        // Считаем пропущенные дни (только done-дни, rest не считаем пропуском)
+        $createdAt = new DateTime($user['created_at']);
+        $today = new DateTime();
+        $createdAt->setTime(0, 0, 0);
+        $today->setTime(0, 0, 0);
+
+        $daysSinceRegistration = $createdAt->diff($today)->days;
+        $markedDays = count($user['completed_dates']) + count($user['rest_dates']);
+        $missedDays = max(0, $daysSinceRegistration - $markedDays);
+        $user['missed_days'] = $missedDays;
+
+        $user['streak'] = calcStreak($user['completed_dates'], $user['rest_dates']);
     }
 
     echo json_encode([
