@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict BcziPq6BbHSANdbas2GWjw8Mg7DB7ddNEV52iZbfO0hTMZ969wRAowf81na3x3n
+\restrict 4Q7abos8u6ipqaFgNO17HJ4k8xiFPPrkGreOh48TSzP8TbosP7cZs3HPZch3bNx
 
 -- Dumped from database version 17.10 (Homebrew)
 -- Dumped by pg_dump version 17.10 (Homebrew)
@@ -173,6 +173,56 @@ ALTER SEQUENCE public.habits_id_seq OWNED BY public.habits.id;
 
 
 --
+-- Name: planner; Type: TABLE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE TABLE public.planner (
+    user_id integer NOT NULL,
+    last_date date DEFAULT CURRENT_DATE NOT NULL
+);
+
+
+ALTER TABLE public.planner OWNER TO bairbadmaev;
+
+--
+-- Name: planner_items; Type: TABLE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE TABLE public.planner_items (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    day_type character varying(10) NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    text text DEFAULT ''::text NOT NULL,
+    CONSTRAINT planner_items_day_type_check CHECK (((day_type)::text = ANY ((ARRAY['today'::character varying, 'tomorrow'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.planner_items OWNER TO bairbadmaev;
+
+--
+-- Name: planner_items_id_seq; Type: SEQUENCE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE SEQUENCE public.planner_items_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.planner_items_id_seq OWNER TO bairbadmaev;
+
+--
+-- Name: planner_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: bairbadmaev
+--
+
+ALTER SEQUENCE public.planner_items_id_seq OWNED BY public.planner_items.id;
+
+
+--
 -- Name: progress; Type: TABLE; Schema: public; Owner: bairbadmaev
 --
 
@@ -320,6 +370,13 @@ ALTER TABLE ONLY public.habits ALTER COLUMN id SET DEFAULT nextval('public.habit
 
 
 --
+-- Name: planner_items id; Type: DEFAULT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.planner_items ALTER COLUMN id SET DEFAULT nextval('public.planner_items_id_seq'::regclass);
+
+
+--
 -- Name: progress id; Type: DEFAULT; Schema: public; Owner: bairbadmaev
 --
 
@@ -395,6 +452,22 @@ COPY public.goals500 (id, user_id, "position", text, done, created_at) FROM stdi
 --
 
 COPY public.habits (id, user_id, title, total_days, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: planner; Type: TABLE DATA; Schema: public; Owner: bairbadmaev
+--
+
+COPY public.planner (user_id, last_date) FROM stdin;
+\.
+
+
+--
+-- Data for Name: planner_items; Type: TABLE DATA; Schema: public; Owner: bairbadmaev
+--
+
+COPY public.planner_items (id, user_id, day_type, "position", text) FROM stdin;
 \.
 
 
@@ -542,6 +615,13 @@ SELECT pg_catalog.setval('public.habits_id_seq', 1, true);
 
 
 --
+-- Name: planner_items_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
+--
+
+SELECT pg_catalog.setval('public.planner_items_id_seq', 8, true);
+
+
+--
 -- Name: progress_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
@@ -603,6 +683,22 @@ ALTER TABLE ONLY public.habits
 
 
 --
+-- Name: planner_items planner_items_pkey; Type: CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.planner_items
+    ADD CONSTRAINT planner_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: planner planner_pkey; Type: CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.planner
+    ADD CONSTRAINT planner_pkey PRIMARY KEY (user_id);
+
+
+--
 -- Name: progress progress_pkey; Type: CONSTRAINT; Schema: public; Owner: bairbadmaev
 --
 
@@ -650,6 +746,13 @@ CREATE INDEX goals500_user_id_idx ON public.goals500 USING btree (user_id, "posi
 
 
 --
+-- Name: planner_items_user_idx; Type: INDEX; Schema: public; Owner: bairbadmaev
+--
+
+CREATE INDEX planner_items_user_idx ON public.planner_items USING btree (user_id, day_type, "position");
+
+
+--
 -- Name: chat_messages chat_messages_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: bairbadmaev
 --
 
@@ -671,6 +774,22 @@ ALTER TABLE ONLY public.goals500
 
 ALTER TABLE ONLY public.habits
     ADD CONSTRAINT habits_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: planner_items planner_items_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.planner_items
+    ADD CONSTRAINT planner_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: planner planner_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.planner
+    ADD CONSTRAINT planner_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
@@ -709,5 +828,5 @@ ALTER TABLE ONLY public.reactions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict BcziPq6BbHSANdbas2GWjw8Mg7DB7ddNEV52iZbfO0hTMZ969wRAowf81na3x3n
+\unrestrict 4Q7abos8u6ipqaFgNO17HJ4k8xiFPPrkGreOh48TSzP8TbosP7cZs3HPZch3bNx
 
