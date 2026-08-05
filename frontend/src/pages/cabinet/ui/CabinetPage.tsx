@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
 import { ArrowLeft, Target, BarChart2, CalendarDays, ListChecks, Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react"
 import type { User as UserType } from "@/entities/user/model/types"
+import { getGoals500, saveGoals500 } from "@/shared/api/client"
 
 /* ─── Planner types & helpers ───────────────────────────────── */
 interface NoteItem { id: number; text: string }
@@ -340,35 +341,68 @@ interface ContextMenu {
 }
 
 function Goals500Section({ currentUser }: { currentUser: UserType }) {
-  const storageKey = `goals500-${currentUser.id}`
-
-  const [goals, setGoals] = useState<GoalEntry[]>(() => {
-    try {
-      const raw = localStorage.getItem(storageKey)
-      if (raw) return JSON.parse(raw)
-    } catch {}
-    return Array.from({ length: 10 }, (_, i) => ({ uid: i + 1, text: "", done: false }))
-  })
-
-  const [nextUid, setNextUid] = useState<number>(() => {
-    try {
-      const raw = localStorage.getItem(storageKey)
-      if (raw) {
-        const arr: GoalEntry[] = JSON.parse(raw)
-        return arr.length > 0 ? Math.max(...arr.map((g) => g.uid)) + 1 : 11
-      }
-    } catch {}
-    return 11
-  })
+  const [goals, setGoals] = useState<GoalEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [nextUid, setNextUid] = useState<number>(1)
 
   const [menu, setMenu] = useState<ContextMenu | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  /* Сохранение */
-  const persist = useCallback((updated: GoalEntry[]) => {
-    setGoals(updated)
-    localStorage.setItem(storageKey, JSON.stringify(updated))
-  }, [storageKey])
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  /* Загрузка из БД */
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    getGoals500(currentUser.id)
+      .then((res) => {
+        if (cancelled) return
+        const rows: { text: string; done: boolean | string }[] =
+          res?.success && Array.isArray(res.goals) ? res.goals : []
+        const loaded: GoalEntry[] = rows.length
+          ? rows.map((r, i) => ({
+              uid: i + 1,
+              text: r.text ?? "",
+              done: r.done === true || r.done === "t" || r.done === "1",
+            }))
+          : Array.from({ length: 10 }, (_, i) => ({ uid: i + 1, text: "", done: false }))
+        setGoals(loaded)
+        setNextUid(loaded.length + 1)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setGoals(Array.from({ length: 10 }, (_, i) => ({ uid: i + 1, text: "", done: false })))
+        setNextUid(11)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser.id])
+
+  /* Сохранение в БД (с дебаунсом) */
+  const persist = useCallback(
+    (updated: GoalEntry[]) => {
+      setGoals(updated)
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+      saveTimer.current = setTimeout(() => {
+        saveGoals500(
+          currentUser.id,
+          updated.map((g) => ({ text: g.text, done: g.done })),
+        ).catch(() => {})
+      }, 500)
+    },
+    [currentUser.id],
+  )
+
+  /* Сброс таймера сохранения при размонтировании */
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [])
 
   /* Закрыть меню при клике вне */
   useEffect(() => {
@@ -426,6 +460,14 @@ function Goals500Section({ currentUser }: { currentUser: UserType }) {
   }
 
   const doneCount = goals.filter((g) => g.done).length
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24 text-sm text-muted-foreground">
+        Загрузка целей...
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-4">

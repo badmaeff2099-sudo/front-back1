@@ -5,7 +5,7 @@ function getPDO()
     $host = "localhost";
     $port = "5432";
     $dbname = "chainify";
-    $user = "postgres";
+    $user = "bairbadmaev";
     $password = "root";
 
     try {

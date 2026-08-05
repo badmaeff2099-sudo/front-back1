@@ -100,3 +100,14 @@ export async function deleteAccount(userId: number) {
 export async function blockAccount(userId: number) {
   return request('/users/block.php', { method: 'POST', body: JSON.stringify({ user_id: userId }) })
 }
+
+export async function getGoals500(userId: number) {
+  return request(`/goals500/list.php?user_id=${userId}`)
+}
+
+export async function saveGoals500(userId: number, goals: { text: string; done: boolean }[]) {
+  return request('/goals500/save.php', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, goals }),
+  })
+}
