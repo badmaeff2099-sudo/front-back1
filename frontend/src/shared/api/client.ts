@@ -33,6 +33,10 @@ export async function getProgress(userId: number) {
   return request(`/progress/get.php?user_id=${userId}`)
 }
 
+export async function getProgressYear(userId: number, year: number) {
+  return request(`/progress/year.php?user_id=${userId}&year=${year}`)
+}
+
 export async function addReaction(fromUserId: number, toUserId: number, emoji: string) {
   return request('/reactions/add.php', {
     method: 'POST',
@@ -109,5 +113,20 @@ export async function saveGoals500(userId: number, goals: { text: string; done: 
   return request('/goals500/save.php', {
     method: 'POST',
     body: JSON.stringify({ user_id: userId, goals }),
+  })
+}
+
+export async function getPlanner(userId: number) {
+  return request(`/planner/get.php?user_id=${userId}`)
+}
+
+export async function savePlanner(
+  userId: number,
+  today: { text: string }[],
+  tomorrow: { text: string }[],
+) {
+  return request('/planner/save.php', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, today, tomorrow }),
   })
 }

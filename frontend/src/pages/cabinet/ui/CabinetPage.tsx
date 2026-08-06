@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react"
-import { ArrowLeft, Target, BarChart2, CalendarDays, ListChecks, Plus, Trash2, ChevronUp, ChevronDown } from "lucide-react"
+import { ArrowLeft, Target, BarChart2, CalendarDays, ListChecks, Plus, Trash2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import type { User as UserType } from "@/entities/user/model/types"
-import { getGoals500, saveGoals500 } from "@/shared/api/client"
+import { getGoals500, saveGoals500, getPlanner, savePlanner, getProgressYear } from "@/shared/api/client"
 
 /* ─── Planner types & helpers ───────────────────────────────── */
 interface NoteItem { id: number; text: string }
@@ -17,29 +17,6 @@ function makeLines(count = 5): NoteItem[] {
 
 function todayStr(): string {
   return new Date().toISOString().slice(0, 10)
-}
-
-function loadPlanner(userId: number): PlannerData {
-  try {
-    const raw = localStorage.getItem(`planner-${userId}`)
-    if (raw) {
-      const saved: PlannerData = JSON.parse(raw)
-      if (saved.lastDate < todayStr()) {
-        // New day — carry tomorrow → today, reset tomorrow
-        const rotated: PlannerData = {
-          lastDate: todayStr(),
-          today: saved.tomorrow.length ? saved.tomorrow : makeLines(),
-          tomorrow: makeLines(),
-        }
-        localStorage.setItem(`planner-${userId}`, JSON.stringify(rotated))
-        return rotated
-      }
-      return saved
-    }
-  } catch {}
-  const fresh: PlannerData = { lastDate: todayStr(), today: makeLines(), tomorrow: makeLines() }
-  localStorage.setItem(`planner-${userId}`, JSON.stringify(fresh))
-  return fresh
 }
 
 interface CabinetPageProps {
@@ -266,12 +243,56 @@ function StickyNote({ title, items, readonly = false, tilt = "", onAdd, onChange
 
 /* ─── Planner section ───────────────────────────────────────── */
 function PlannerSection({ currentUser }: { currentUser: UserType }) {
-  const [data, setData] = useState<PlannerData>(() => loadPlanner(currentUser.id))
+  const [data, setData] = useState<PlannerData>({ lastDate: todayStr(), today: [], tomorrow: [] })
+  const [loading, setLoading] = useState(true)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  /* Загрузка из БД (ротация выполняется на бэкенде) */
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    getPlanner(currentUser.id)
+      .then((res) => {
+        if (cancelled) return
+        if (res?.success) {
+          setData({
+            lastDate: res.lastDate ?? todayStr(),
+            today: Array.isArray(res.today) && res.today.length ? res.today : makeLines(),
+            tomorrow: Array.isArray(res.tomorrow) ? res.tomorrow : [],
+          })
+        } else {
+          setData({ lastDate: todayStr(), today: makeLines(), tomorrow: makeLines() })
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setData({ lastDate: todayStr(), today: makeLines(), tomorrow: makeLines() })
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser.id])
+
+  /* Сохранение в БД (с дебаунсом) */
   const saveData = (updated: PlannerData) => {
     setData(updated)
-    localStorage.setItem(`planner-${currentUser.id}`, JSON.stringify(updated))
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(() => {
+      savePlanner(
+        currentUser.id,
+        updated.today.map((i) => ({ text: i.text })),
+        updated.tomorrow.map((i) => ({ text: i.text })),
+      ).catch(() => {})
+    }, 500)
   }
+
+  useEffect(() => {
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current)
+    }
+  }, [])
 
   const handleTomorrowChange = (id: number, value: string) => {
     saveData({
@@ -283,6 +304,14 @@ function PlannerSection({ currentUser }: { currentUser: UserType }) {
   const addTomorrowLine = () => {
     const nextId = data.tomorrow.length > 0 ? Math.max(...data.tomorrow.map((i) => i.id)) + 1 : 1
     saveData({ ...data, tomorrow: [...data.tomorrow, { id: nextId, text: "" }] })
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24 text-sm text-muted-foreground">
+        Загрузка планнера...
+      </div>
+    )
   }
 
   return (
@@ -625,6 +654,237 @@ function Goals500Section({ currentUser }: { currentUser: UserType }) {
   )
 }
 
+/* ─── Stats section: годовая сетка стрика ───────────────────── */
+type DayStatus = "done" | "rest" | "missed" | "empty"
+
+interface YearDay {
+  date: string
+  status: DayStatus
+}
+
+const MONTH_LABELS = [
+  "Янв", "Фев", "Мар", "Апр", "Май", "Июн",
+  "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек",
+]
+
+const WEEKDAY_LABELS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+
+const CELL_STYLE: Record<DayStatus, string> = {
+  done:   "bg-green-500 border-green-400/40",
+  rest:   "bg-yellow-400 border-yellow-300/40",
+  missed: "bg-red-500 border-red-400/40",
+  empty:  "bg-[#242424] border-[#2e2e2e]",
+}
+
+const STATUS_LABEL: Record<DayStatus, string> = {
+  done:   "выполнено",
+  rest:   "выходной",
+  missed: "пропущено",
+  empty:  "нет отметки",
+}
+
+const LEGEND: { status: DayStatus; label: string }[] = [
+  { status: "done",   label: "Отмеченные" },
+  { status: "rest",   label: "Выходные" },
+  { status: "missed", label: "Пропущенные" },
+  { status: "empty",  label: "Без отметки" },
+]
+
+/** Разбивает дни года по месяцам и дополняет каждый месяц пустыми
+ *  ячейками в начале, чтобы недели выстраивались в колонки (Пн — сверху). */
+function buildMonths(days: YearDay[]): (YearDay | null)[][] {
+  const months: (YearDay | null)[][] = Array.from({ length: 12 }, () => [])
+
+  for (const day of days) {
+    const d = new Date(`${day.date}T00:00:00`)
+    const monthIndex = d.getMonth()
+    if (months[monthIndex].length === 0) {
+      // getDay(): 0 = Вс. Приводим к понедельнику как началу недели.
+      const offset = (d.getDay() + 6) % 7
+      for (let i = 0; i < offset; i++) months[monthIndex].push(null)
+    }
+    months[monthIndex].push(day)
+  }
+
+  return months
+}
+
+function formatDateRu(date: string): string {
+  const d = new Date(`${date}T00:00:00`)
+  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`
+}
+
+function YearGrid({ days }: { days: YearDay[] }) {
+  const months = buildMonths(days)
+
+  return (
+    <div className="overflow-x-auto">
+      <div className="flex gap-4 min-w-max pb-1">
+        {/* Подписи дней недели */}
+        <div className="flex flex-col gap-[3px] pt-[18px] shrink-0">
+          {WEEKDAY_LABELS.map((label, i) => (
+            <div
+              key={label}
+              className="h-[11px] text-[9px] leading-[11px] text-muted-foreground/40 select-none w-5 text-right"
+            >
+              {i % 2 === 1 ? label : ""}
+            </div>
+          ))}
+        </div>
+
+        {months.map((cells, monthIndex) => {
+          const weeks: (YearDay | null)[][] = []
+          for (let i = 0; i < cells.length; i += 7) {
+            const week = cells.slice(i, i + 7)
+            while (week.length < 7) week.push(null)
+            weeks.push(week)
+          }
+
+          return (
+            <div key={monthIndex} className="flex flex-col gap-1">
+              <span className="text-[10px] text-muted-foreground/60 select-none h-[14px]">
+                {MONTH_LABELS[monthIndex]}
+              </span>
+              <div className="flex gap-[3px]">
+                {weeks.map((week, wi) => (
+                  <div key={wi} className="flex flex-col gap-[3px]">
+                    {week.map((day, di) =>
+                      day ? (
+                        <div
+                          key={day.date}
+                          title={`${formatDateRu(day.date)} — ${STATUS_LABEL[day.status]}`}
+                          className={`w-[11px] h-[11px] rounded-[2px] border ${CELL_STYLE[day.status]}`}
+                        />
+                      ) : (
+                        <div key={`${wi}-${di}`} className="w-[11px] h-[11px]" />
+                      ),
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function StatsSection({ currentUser }: { currentUser: UserType }) {
+  const currentYear = new Date().getFullYear()
+  const [year, setYear] = useState(currentYear)
+  const [days, setDays] = useState<YearDay[]>([])
+  const [counts, setCounts] = useState<Record<DayStatus, number> | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    getProgressYear(currentUser.id, year)
+      .then((res) => {
+        if (cancelled) return
+        if (res?.success && Array.isArray(res.days)) {
+          setDays(res.days)
+          setCounts(res.counts ?? null)
+        } else {
+          setError(res?.message ?? "Не удалось загрузить статистику")
+          setDays([])
+          setCounts(null)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError("Не удалось загрузить статистику")
+          setDays([])
+          setCounts(null)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser.id, year])
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Годовая сетка стрика */}
+      <div className="bg-[#111] border border-[#1e1e1e] rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e1e1e]">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground">Стрик за год</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Каждая клетка — один день. Наведите курсор, чтобы увидеть дату.
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setYear((y) => y - 1)}
+              aria-label="Предыдущий год"
+              className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-[#1e1e1e] transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-sm font-medium text-foreground tabular-nums w-12 text-center select-none">
+              {year}
+            </span>
+            <button
+              onClick={() => setYear((y) => y + 1)}
+              disabled={year >= currentYear}
+              aria-label="Следующий год"
+              className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-[#1e1e1e] transition-colors disabled:opacity-30 disabled:pointer-events-none"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="px-5 py-5">
+          {loading ? (
+            <p className="text-sm text-muted-foreground py-8 text-center">Загрузка статистики...</p>
+          ) : error ? (
+            <p className="text-sm text-red-400/80 py-8 text-center">{error}</p>
+          ) : (
+            <YearGrid days={days} />
+          )}
+        </div>
+
+        {/* Легенда */}
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-5 py-3 border-t border-[#1e1e1e]">
+          {LEGEND.map((item) => (
+            <div key={item.status} className="flex items-center gap-1.5">
+              <span className={`w-[11px] h-[11px] rounded-[2px] border ${CELL_STYLE[item.status]}`} />
+              <span className="text-[11px] text-muted-foreground">{item.label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Сводка за год */}
+      {counts && !loading && !error && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {LEGEND.map((item) => (
+            <div
+              key={item.status}
+              className="bg-[#111] border border-[#1e1e1e] rounded-xl px-4 py-3 flex flex-col gap-1"
+            >
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                {item.label}
+              </span>
+              <span className="text-xl font-bold text-foreground tabular-nums">
+                {counts[item.status] ?? 0}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ComingSoon({ label }: { label: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 gap-3 bg-[#111] border border-[#1e1e1e] rounded-xl">
@@ -673,7 +933,7 @@ export default function CabinetPage({ currentUser, onBack }: CabinetPageProps) {
           {/* Content */}
           <div className="flex-1 min-w-0">
             {active === "goal"     && <GoalSection currentUser={currentUser} />}
-            {active === "stats"    && <ComingSoon label="Моя статистика" />}
+            {active === "stats"    && <StatsSection currentUser={currentUser} />}
             {active === "planner"  && <PlannerSection currentUser={currentUser} />}
             {active === "goals500" && <Goals500Section currentUser={currentUser} />}
           </div>
