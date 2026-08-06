@@ -25,7 +25,7 @@ if (!$user_id) {
     exit;
 }
 
-if ($year < 1970 || $year > 2999) {
+if ($year < 2000 || $year > (int)date('Y')) {
     $year = (int)date('Y');
 }
 

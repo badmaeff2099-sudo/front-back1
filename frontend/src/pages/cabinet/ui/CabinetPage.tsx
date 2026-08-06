@@ -683,6 +683,8 @@ const STATUS_LABEL: Record<DayStatus, string> = {
   empty:  "нет отметки",
 }
 
+const MIN_YEAR = 2000
+
 const LEGEND: { status: DayStatus; label: string }[] = [
   { status: "done",   label: "Отмеченные" },
   { status: "rest",   label: "Выходные" },
@@ -822,9 +824,10 @@ function StatsSection({ currentUser }: { currentUser: UserType }) {
           </div>
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setYear((y) => y - 1)}
+              onClick={() => setYear((y) => Math.max(MIN_YEAR, y - 1))}
+              disabled={year <= MIN_YEAR}
               aria-label="Предыдущий год"
-              className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-[#1e1e1e] transition-colors"
+              className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-[#1e1e1e] transition-colors disabled:opacity-30 disabled:pointer-events-none"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
