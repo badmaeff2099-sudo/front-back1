@@ -772,6 +772,188 @@ function YearGrid({ days }: { days: YearDay[] }) {
   )
 }
 
+/* ─── Анализ поведения: аналитика за последние 10 дней ───────── */
+const BEHAVIOR_WINDOW = 10
+
+interface BehaviorMetrics {
+  discipline: number
+  stability: number
+  resilience: number
+  doneCount: number
+  missedCount: number
+  restCount: number
+  maxStreak: number
+  recoveries: number
+  totalMisses: number
+}
+
+/** Последние BEHAVIOR_WINDOW дней, заканчивая сегодняшним днём. */
+function lastWindowDates(): string[] {
+  const today = new Date()
+  const out: string[] = []
+  for (let i = BEHAVIOR_WINDOW - 1; i >= 0; i--) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    out.push(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+    )
+  }
+  return out
+}
+
+/**
+ * Считает три показателя по окну из 10 дней.
+ *
+ * Дисциплина  = выполненные / (выполненные + пропущенные) * 100.
+ *               Выходные (rest) в расчёт не идут.
+ * Стабильность = максимальный стрик внутри окна / 10 * 100.
+ *               Выходной нейтрален: стрик не растёт, но и не рвётся.
+ * Устойчивость = случаи «после пропуска следующий день выполнен» /
+ *               общее число пропусков * 100. Выходные пропускаются
+ *               при поиске следующего дня.
+ */
+function calcBehavior(statusByDate: Map<string, DayStatus>): BehaviorMetrics {
+  const dates = lastWindowDates()
+  // Дни без отметки считаем пропущенными: цель на этот день не выполнена.
+  const win = dates.map((date) => {
+    const status = statusByDate.get(date) ?? "empty"
+    return { date, status: status === "empty" ? ("missed" as DayStatus) : status }
+  })
+
+  const doneCount = win.filter((d) => d.status === "done").length
+  const missedCount = win.filter((d) => d.status === "missed").length
+  const restCount = win.filter((d) => d.status === "rest").length
+
+  const discipline =
+    doneCount + missedCount > 0
+      ? (doneCount / (doneCount + missedCount)) * 100
+      : 0
+
+  let maxStreak = 0
+  let current = 0
+  for (const day of win) {
+    if (day.status === "done") {
+      current++
+      maxStreak = Math.max(maxStreak, current)
+    } else if (day.status === "missed") {
+      current = 0
+    }
+    // rest — нейтрален, стрик не меняется
+  }
+  const stability = (maxStreak / BEHAVIOR_WINDOW) * 100
+
+  let recoveries = 0
+  let totalMisses = 0
+  for (let i = 0; i < win.length; i++) {
+    if (win[i].status !== "missed") continue
+    // Ищем следующий рабочий день (выходные пропускаем)
+    let j = i + 1
+    while (j < win.length && win[j].status === "rest") j++
+    if (j >= win.length) continue // нет следующего дня в окне — не учитываем
+    totalMisses++
+    if (win[j].status === "done") recoveries++
+  }
+  const resilience = totalMisses > 0 ? (recoveries / totalMisses) * 100 : 100
+
+  return {
+    discipline,
+    stability,
+    resilience,
+    doneCount,
+    missedCount,
+    restCount,
+    maxStreak,
+    recoveries,
+    totalMisses,
+  }
+}
+
+function metricTone(value: number): string {
+  if (value >= 70) return "text-green-400"
+  if (value >= 40) return "text-yellow-400"
+  return "text-red-400"
+}
+
+function metricBar(value: number): string {
+  if (value >= 70) return "bg-green-500"
+  if (value >= 40) return "bg-yellow-400"
+  return "bg-red-500"
+}
+
+function MetricCard({
+  label,
+  hint,
+  value,
+  detail,
+}: {
+  label: string
+  hint: string
+  value: number
+  detail: string
+}) {
+  const rounded = Math.round(value)
+
+  return (
+    <div className="bg-[#111] border border-[#1e1e1e] rounded-xl px-4 py-4 flex flex-col gap-2">
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-[11px] text-muted-foreground uppercase tracking-wider">{label}</span>
+        <span className={`text-2xl font-bold tabular-nums ${metricTone(value)}`}>{rounded}%</span>
+      </div>
+
+      <div className="h-1.5 rounded-full bg-[#1e1e1e] overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${metricBar(value)}`}
+          style={{ width: `${Math.min(100, Math.max(0, rounded))}%` }}
+        />
+      </div>
+
+      <p className="text-[11px] text-muted-foreground leading-snug">{hint}</p>
+      <p className="text-[11px] text-muted-foreground/60 tabular-nums">{detail}</p>
+    </div>
+  )
+}
+
+function BehaviorSection({ days }: { days: YearDay[] }) {
+  const statusByDate = new Map(days.map((d) => [d.date, d.status]))
+  const m = calcBehavior(statusByDate)
+
+  return (
+    <div className="bg-[#111] border border-[#1e1e1e] rounded-xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-[#1e1e1e]">
+        <h2 className="text-sm font-semibold text-foreground">Анализ поведения</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Аналитика за последние {BEHAVIOR_WINDOW} дней. Выходные не учитываются.
+        </p>
+      </div>
+
+      <div className="px-5 py-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <MetricCard
+          label="Дисциплина"
+          value={m.discipline}
+          hint="Насколько часто вы выполняете цель."
+          detail={`${m.doneCount} выполнено / ${m.doneCount + m.missedCount} рабочих дней`}
+        />
+        <MetricCard
+          label="Стабильность"
+          value={m.stability}
+          hint="Насколько равномерно вы идёте к цели без срывов."
+          detail={`Лучшая серия: ${m.maxStreak} из ${BEHAVIOR_WINDOW}`}
+        />
+        <MetricCard
+          label="Устойчивость"
+          value={m.resilience}
+          hint="Насколько быстро вы возвращаетесь после пропуска."
+          detail={
+            m.totalMisses > 0
+              ? `${m.recoveries} возвратов / ${m.totalMisses} пропусков`
+              : "Пропусков не было"
+          }
+        />
+      </div>
+    </div>
+  )
+}
+
 function StatsSection({ currentUser }: { currentUser: UserType }) {
   const currentYear = new Date().getFullYear()
   const [year, setYear] = useState(currentYear)
@@ -779,6 +961,31 @@ function StatsSection({ currentUser }: { currentUser: UserType }) {
   const [counts, setCounts] = useState<Record<DayStatus, number> | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Окно последних 10 дней не зависит от выбранного года и может
+  // пересекать границу года — грузим отдельно.
+  const [recentDays, setRecentDays] = useState<YearDay[] | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const win = lastWindowDates()
+    const years = [...new Set(win.map((d) => Number(d.slice(0, 4))))]
+
+    Promise.all(years.map((y) => getProgressYear(currentUser.id, y)))
+      .then((results) => {
+        if (cancelled) return
+        const all = results.flatMap((res) =>
+          res?.success && Array.isArray(res.days) ? (res.days as YearDay[]) : [],
+        )
+        setRecentDays(all)
+      })
+      .catch(() => {
+        if (!cancelled) setRecentDays(null)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser.id])
 
   useEffect(() => {
     let cancelled = false
@@ -884,6 +1091,9 @@ function StatsSection({ currentUser }: { currentUser: UserType }) {
           ))}
         </div>
       )}
+
+      {/* Анализ поведения за последние 10 дней */}
+      {recentDays && <BehaviorSection days={recentDays} />}
     </div>
   )
 }
