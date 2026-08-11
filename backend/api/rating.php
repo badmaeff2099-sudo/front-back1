@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../db.php';
 require_once 'streak_helper.php';
+require_once 'discipline_helper.php';
 
 $pdo = getPDO();
 
@@ -91,6 +92,14 @@ try {
         $markedDays = count($user['completed_dates']) + count($user['rest_dates']);
         $missedDays = max(0, $daysSinceRegistration - $markedDays);
         $user['missed_days'] = $missedDays;
+
+        // Discipline Score — отдельный показатель, на missed_days не влияет
+        $discipline = calcDisciplineScore(
+            $user['completed_dates'],
+            $user['rest_dates'],
+            $user['created_at']
+        );
+        $user['discipline_score'] = $discipline['score'];
 
         $user['streak'] = calcStreak($user['completed_dates'], $user['rest_dates']);
     }

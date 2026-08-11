@@ -1,4 +1,4 @@
-import { ArrowLeft, Trophy, MapPin, Calendar, Flame } from "lucide-react";
+import { ArrowLeft, Trophy, MapPin, Calendar, Flame, Target, Moon } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
 import { Progress } from "@/shared/ui/progress";
@@ -8,6 +8,7 @@ import { getRank, RANKS } from "@/entities/rank/model/ranks";
 import { UserAvatar } from "@/entities/user/ui/UserAvatar";
 import { FriendButton } from "@/features/friends/ui/FriendButton";
 import { calcStreak, calcLongestStreak } from "@/shared/lib/streak";
+import { calcDiscipline } from "@/shared/lib/discipline";
 import type { User as UserType } from "@/entities/user/model/types";
 
 const DAYS_TO_SHOW = 30;
@@ -60,6 +61,9 @@ export default function UserProfile({
     0,
     passedDays - completedDays + (todayCompleted ? 1 : 0),
   );
+
+  // Discipline Score — отдельный показатель, на missedDays и цикл не влияет
+  const discipline = calcDiscipline(completedDates, restDates, user.created_at);
   const totalCycleDays = completedDays + missedDays;
   const currentCycleDays =
     totalCycleDays === 0 ? 0 : totalCycleDays % DAYS_TO_SHOW || DAYS_TO_SHOW;
@@ -276,6 +280,16 @@ export default function UserProfile({
                     icon: <Flame className="h-5 w-5" />,
                     title: "Текущая серия",
                     value: `${currentStreak} дней`,
+                  },
+                  {
+                    icon: <Target className="h-5 w-5 text-brand" />,
+                    title: "Discipline Score",
+                    value: discipline.score,
+                  },
+                  {
+                    icon: <Moon className="h-5 w-5" />,
+                    title: "Выходных",
+                    value: discipline.restDays,
                   },
                 ].map((s) => (
                   <div

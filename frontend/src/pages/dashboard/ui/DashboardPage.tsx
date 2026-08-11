@@ -9,6 +9,8 @@ import {
   Flame,
   Users,
   LayoutDashboard,
+  Target,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import {
@@ -29,6 +31,7 @@ import { UserAvatar } from "@/entities/user/ui/UserAvatar";
 import { getUsers, getFriends, markDay } from "@/shared/api/client";
 import { FriendsPanel } from "@/features/friends/ui/FriendsPanel";
 import { calcStreak } from "@/shared/lib/streak";
+import { calcDiscipline } from "@/shared/lib/discipline";
 import type { User as UserType } from "@/entities/user/model/types";
 
 const PARTICIPANTS_PER_PAGE = 20;
@@ -447,6 +450,7 @@ interface DashboardPageProps {
   currentUser: UserType;
   onShowProfile: () => void;
   onShowLeaderboard: () => void;
+  onShowDiscipline: () => void;
   onShowFriends: () => void;
   onShowCabinet: () => void;
   onSelectUser: (user: UserType) => void;
@@ -458,6 +462,7 @@ export default function DashboardPage({
   currentUser,
   onShowProfile,
   onShowLeaderboard,
+  onShowDiscipline,
   onShowFriends,
   onShowCabinet,
   onSelectUser,
@@ -738,6 +743,11 @@ export default function DashboardPage({
                     {(() => {
                       const total = myData.completed_dates.length ?? 0;
                       const streak = calcStreak(myData.completed_dates, myData.rest_dates);
+                      const discipline = calcDiscipline(
+                        myData.completed_dates,
+                        myData.rest_dates,
+                        currentUser.created_at,
+                      );
                       const joinDate = currentUser.created_at
                         ? new Date(currentUser.created_at).toLocaleDateString("ru-RU", {
                             day: "numeric",
@@ -761,6 +771,26 @@ export default function DashboardPage({
                               <span className="text-xs font-bold text-orange-400">{streak}д</span>
                             </div>
                           )}
+                          <button
+                            type="button"
+                            onClick={onShowDiscipline}
+                            title="Открыть страницу Discipline Score"
+                            className="flex items-center justify-between w-full -mx-1.5 px-1.5 py-1 rounded-md hover:bg-white/[0.04] transition-colors group"
+                          >
+                            <span className="flex items-center gap-1.5 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+                              <Target className="h-3 w-3 text-brand" /> Discipline Score
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span
+                                className={`text-xs font-bold tabular-nums ${
+                                  discipline.score >= 0 ? "text-brand" : "text-red-400"
+                                }`}
+                              >
+                                {discipline.score}
+                              </span>
+                              <ChevronRight className="h-3 w-3 text-muted-foreground group-hover:text-foreground transition-colors" />
+                            </span>
+                          </button>
                           {joinDate && (
                             <div className="flex items-center justify-between">
                               <span className="text-xs text-muted-foreground">С нами с</span>

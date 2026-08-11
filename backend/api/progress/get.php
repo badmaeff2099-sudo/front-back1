@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 require_once '../../db.php';
 require_once '../streak_helper.php';
+require_once '../discipline_helper.php';
 
 $pdo = getPDO();
 
@@ -61,12 +62,22 @@ try {
 
     $streak = calcStreak($completed_dates, $rest_dates);
 
+    // Дата регистрации — точка отсчёта пропущенных дней
+    $userStmt = $pdo->prepare("SELECT created_at FROM users WHERE id = :user_id");
+    $userStmt->execute([':user_id' => $user_id]);
+    $created_at = $userStmt->fetchColumn() ?: null;
+
+    $discipline = calcDisciplineScore($completed_dates, $rest_dates, $created_at);
+    saveDisciplineScore($pdo, (int)$user_id, $discipline);
+
     echo json_encode([
         "success" => true,
         "completed_dates" => $completed_dates,
         "rest_dates" => $rest_dates,
         "total" => count($completed_dates),
-        "streak" => $streak
+        "streak" => $streak,
+        "discipline_score" => $discipline['score'],
+        "discipline" => $discipline
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {

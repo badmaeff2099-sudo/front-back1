@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { ArrowLeft, Trophy, Flame, CheckCircle, XCircle } from "lucide-react"
+import { ArrowLeft, Trophy, Flame, CheckCircle, XCircle, Target } from "lucide-react"
 import { Button } from "@/shared/ui/button"
 import { Badge } from "@/shared/ui/badge"
 import { Progress } from "@/shared/ui/progress"
@@ -8,6 +8,7 @@ import { getLeaderboard } from "@/shared/api/client"
 import { getRank, RANKS } from "@/entities/rank/model/ranks"
 import { UserAvatar } from "@/entities/user/ui/UserAvatar"
 import { calcStreak } from "@/shared/lib/streak"
+import { calcDisciplineScore } from "@/shared/lib/discipline"
 import type { User as UserType } from "@/entities/user/model/types"
 import "./LeaderboardPage.css"
 
@@ -16,9 +17,10 @@ interface LeaderboardUser extends UserType {
   missed_days: number
   streak?: number
   rest_dates?: string[]
+  discipline_score?: number
 }
 
-type SortKey = "total_days" | "streak" | "missed_days"
+type SortKey = "total_days" | "streak" | "missed_days" | "discipline_score"
 
 function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
   const [users, setUsers] = useState<LeaderboardUser[]>([])
@@ -39,10 +41,21 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
     else { setSortKey(key); setSortDir("desc") }
   }
 
+  // Считаем на клиенте из completed_dates/rest_dates — так число всегда
+  // актуально и совпадает с дашбордом, даже если ответ сервера закэширован.
+  const scoreOf = (u: LeaderboardUser) =>
+    calcDisciplineScore(u.completed_dates, u.rest_dates, u.created_at)
+
+  const valueOf = (u: LeaderboardUser, key: SortKey): number => {
+    if (key === "streak") return calcStreak(u.completed_dates, u.rest_dates)
+    if (key === "discipline_score") return scoreOf(u)
+    return (u[key] as number) ?? 0
+  }
+
   const sortedUsers = [...users].sort((a, b) => {
-    let av = sortKey === "streak" ? calcStreak(a.completed_dates, a.rest_dates) : a[sortKey] ?? 0
-    let bv = sortKey === "streak" ? calcStreak(b.completed_dates, b.rest_dates) : b[sortKey] ?? 0
-    return sortDir === "desc" ? (bv as number) - (av as number) : (av as number) - (bv as number)
+    const av = valueOf(a, sortKey)
+    const bv = valueOf(b, sortKey)
+    return sortDir === "desc" ? bv - av : av - bv
   })
 
   const totalDays = users.reduce((s, u) => s + u.total_days, 0)
@@ -91,6 +104,7 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
                   <th className="px-4 py-3 text-left text-xs text-muted-foreground font-medium">Цикл</th>
                   <SortHeader label="Дней" k="total_days" />
                   <SortHeader label="Серия" k="streak" />
+                  <SortHeader label="Discipline Score" k="discipline_score" />
                   <SortHeader label="Пропущено" k="missed_days" />
                 </tr>
               </thead>
@@ -98,6 +112,7 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
                 {sortedUsers.map((user, index) => {
                   const rank = getRank(user.total_days)
                   const streak = calcStreak(user.completed_dates, user.rest_dates)
+                  const score = scoreOf(user)
                   const cycle = user.total_days === 0 ? 0 : user.total_days % 30 || 30
                   const isMe = currentUser?.username === user.username
                   return (
@@ -130,6 +145,15 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-400">
                           <Flame className="h-3 w-3" /> {streak}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold tabular-nums ${
+                            score >= 0 ? "bg-brand/10 text-brand" : "bg-red-500/10 text-red-400"
+                          }`}
+                        >
+                          <Target className="h-3 w-3" /> {score}
                         </span>
                       </td>
                       <td className="px-4 py-3">

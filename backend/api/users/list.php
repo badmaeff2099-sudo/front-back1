@@ -12,6 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 require_once '../../db.php';
+require_once '../discipline_helper.php';
 
 $pdo = getPDO();
 
@@ -83,6 +84,16 @@ try {
         if (is_string($user['rest_dates'])) {
             $user['rest_dates'] = json_decode($user['rest_dates'], true);
         }
+        $user['completed_dates'] = $user['completed_dates'] ?? [];
+        $user['rest_dates'] = $user['rest_dates'] ?? [];
+
+        $discipline = calcDisciplineScore(
+            $user['completed_dates'],
+            $user['rest_dates'],
+            $user['created_at']
+        );
+
+        $user['discipline_score'] = $discipline['score'];
     }
 
     echo json_encode([

@@ -13,6 +13,7 @@ const LeaderboardPage = lazy(() => import("@/pages/leaderboard/ui/LeaderboardPag
 const UserProfilePage = lazy(() => import("@/pages/user-profile/ui/UserProfilePage"))
 const FriendsPage = lazy(() => import("@/pages/friends/ui/FriendsPage"))
 const CabinetPage = lazy(() => import("@/pages/cabinet/ui/CabinetPage"))
+const DisciplinePage = lazy(() => import("@/pages/discipline/ui/DisciplinePage"))
 
 function PageLoader() {
   return (
@@ -33,13 +34,23 @@ function App() {
   const [showCabinet, setShowCabinet] = useState(false)
   const [selectedUser, setSelectedUser] = useState<UserType | null>(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [showDiscipline, setShowDiscipline] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
-  // При старте — грузим актуальный прогресс с сервера (completed_dates + rest_dates)
+  // Ключ текущего экрана — меняется при любом переходе.
+  // Прогресс перезагружается на каждом переходе, чтобы Discipline Score
+  // и серия везде показывали актуальные данные.
+  const view = showLeaderboard ? "leaderboard"
+    : showDiscipline ? "discipline"
+    : showProfile ? "profile"
+    : showFriends ? "friends"
+    : showCabinet ? "cabinet"
+    : selectedUser ? `user-${selectedUser.id}`
+    : "dashboard"
+
+  // При старте и при каждом переходе — грузим актуальный прогресс с сервера
   useEffect(() => {
     if (!isAuthenticated || !currentUser) return
-    requestPermission()
-    checkAndNotify()
     getProgress(currentUser.id).then((res) => {
       if (res.success) {
         setCurrentUser(prev => {
@@ -56,6 +67,13 @@ function App() {
         })
       }
     })
+  }, [isAuthenticated, view])
+
+  // Разрешение на уведомления запрашиваем один раз при входе
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser) return
+    requestPermission()
+    checkAndNotify()
   }, [isAuthenticated])
 
   const handleLogin = (userData: UserType) => {
@@ -107,6 +125,7 @@ function App() {
 
   if (!isAuthenticated) return <Suspense fallback={<PageLoader />}><AuthPage onLogin={handleLogin} /></Suspense>
   if (showLeaderboard) return <Suspense fallback={<PageLoader />}><LeaderboardPage currentUser={currentUser ?? undefined} onBack={() => setShowLeaderboard(false)} /></Suspense>
+  if (showDiscipline) return <Suspense fallback={<PageLoader />}><DisciplinePage user={currentUser!} onBack={() => setShowDiscipline(false)} /></Suspense>
   if (showProfile) return <Suspense fallback={<PageLoader />}><ProfilePage currentUser={currentUser!} onBack={() => setShowProfile(false)} onUpdateUser={handleUpdateUser} onLogout={handleLogout} /></Suspense>
   if (showFriends) return <Suspense fallback={<PageLoader />}><FriendsPage currentUser={currentUser!} onBack={() => setShowFriends(false)} onSelectUser={handleSelectUser} /></Suspense>
   if (showCabinet) return <Suspense fallback={<PageLoader />}><CabinetPage currentUser={currentUser!} onBack={() => setShowCabinet(false)} /></Suspense>
@@ -118,6 +137,7 @@ function App() {
         currentUser={currentUser!}
         onShowProfile={() => setShowProfile(true)}
         onShowLeaderboard={() => setShowLeaderboard(true)}
+        onShowDiscipline={() => setShowDiscipline(true)}
         onShowFriends={() => setShowFriends(true)}
         onShowCabinet={() => setShowCabinet(true)}
         onSelectUser={setSelectedUser}
