@@ -17,9 +17,12 @@ export async function login(payload: object) {
   return request('/auth/login.php', { method: 'POST', body: JSON.stringify(payload) })
 }
 
-export async function getUsers(location = '') {
-  const qs = location ? `?location=${encodeURIComponent(location)}` : ''
-  return request(`/users/list.php${qs}`)
+export async function getUsers(location = '', search = '') {
+  const params = new URLSearchParams()
+  if (location) params.set('location', location)
+  if (search) params.set('search', search)
+  const qs = params.toString()
+  return request(`/users/list.php${qs ? `?${qs}` : ''}`)
 }
 
 export async function markDay(userId: number, date: string, status?: string) {

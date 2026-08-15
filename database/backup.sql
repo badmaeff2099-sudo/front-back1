@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict dKDwYPr4ana3r8beaiejPliwqjIcBvREHwfhRvBzqdx5VKrfj1FXtxQi5bjdBvy
+\restrict vBeXAdanIhIDWqRnAB37yvpFkqhKXEvq3DlPyagphJglqNxY7j5yPUQx9ppmFhE
 
 -- Dumped from database version 17.10 (Homebrew)
 -- Dumped by pg_dump version 17.10 (Homebrew)
@@ -18,6 +18,20 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
+
+--
+-- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
+
+
+--
+-- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: 
+--
+
+COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
+
 
 SET default_tablespace = '';
 
@@ -459,7 +473,7 @@ COPY public.chat_messages (id, user_id, channel, message, created_at) FROM stdin
 
 COPY public.discipline_scores (id, user_id, completed_days, missed_days, score, calculated_at, rest_days) FROM stdin;
 8	9	4	93	3	2026-08-15 23:16:10.138464	1
-1	6	19	80	14	2026-08-15 23:16:30.406652	1
+1	6	19	80	14	2026-08-16 00:50:44.517517	1
 6	7	11	83	0	2026-08-11 15:55:35.536425	0
 7	8	7	87	0	2026-08-11 15:55:35.537439	0
 9	10	2	87	0	2026-08-11 15:55:35.53932	1
@@ -654,7 +668,6 @@ COPY public.users (id, username, email, password, created_at, location, goal, fu
 13	Bator	bator@gmail.com	$2y$12$AYdg4HF36pBDamPKiGHsqeV8oJWfvUZfbzJ.rbVfWmvWrOFAa9pHq	2026-05-14			\N	\N	\N	\N	\N
 14	Irina	irina@gmail.com	$2y$12$XS10eDj/nXMoSsNTIAhMrO66xObOqKXy.9eZDc19h0a8NKzpayRty	2026-05-14	Москва	Бег	\N	\N	\N	\N	\N
 15	Erdem	erdem@gmail.com	$2y$12$JHcqu6Rc7OaHA1TTHaogCuWOqu.DVHm43I1T6EOIzKtGmuIt9nIV2	2026-05-14	Улан-Удэ	Ходьба	\N	\N	\N	\N	\N
-10	Boris	boris@gmail.com	$2y$12$7YatqQJiOC02THXESLGWu.o6wF.YD0/0h88E6Y4J3A7t7U9BgBIQq	2026-05-13	Улан-Удэ	Мед	\N	\N	\N	\N	\N
 16	Mila	mila@gmail.com	$2y$12$UjdpjYkkgEH2vF2lSrN62OAiuuXOn6pz1G9YmVne/9K2OP7Wt8eJC	2026-05-16			\N	\N	\N	\N	\N
 9	Ana	anna@gmail.com	$2y$12$ZygBNpELxHsM30QIoHqEgu/lEg472DnnE8C5mh.YZ7yc9.Ry9Y7Oy	2026-05-10	Улан-Удэ	Шахматы	\N	\N	\N	\N	\N
 11	Ivan	ivan@gmail.com	$2y$12$wuSDLuovEEE/zBVFkxdpmOEJHgieoYGpOKFDe63rv4T/rnj1BM0lm	2026-05-13	Москва	Бег	\N			\N	ivan
@@ -668,6 +681,7 @@ COPY public.users (id, username, email, password, created_at, location, goal, fu
 25	Nina	nina@gmail.com	$2y$12$8coO3xv1OnbuyoFTlp.tC.xvo4j0ifZ7jlZS8EpiRf7sXeFk7lPhm	2026-06-16	Новосибирск		\N			\N	\N
 26	Alim	alim@gmail.com	$2y$12$CnFVQYIOrPOXXa2VoSPiS.D3mC/64sDR90TWg2Jtw7biGUTtTlqLS	2026-06-16	Улан-Удэ	Бег	\N	\N	\N	\N	\N
 6	Max	max@gmail.com	$2y$12$kEO.RBZM.Ikp959E4V5d2utjCyO5gGxsT6bBsWjzc/hHteaRyP7n.	2026-05-08	Улан-Батор	Английский				\N	m
+10	Boris	boris@gmail.com	$2y$12$7YatqQJiOC02THXESLGWu.o6wF.YD0/0h88E6Y4J3A7t7U9BgBIQq	2026-05-13	Улан-Удэ	Мед	\N	\N	\N	\N	\N
 \.
 
 
@@ -682,7 +696,7 @@ SELECT pg_catalog.setval('public.chat_messages_id_seq', 2, true);
 -- Name: discipline_scores_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.discipline_scores_id_seq', 478, true);
+SELECT pg_catalog.setval('public.discipline_scores_id_seq', 520, true);
 
 
 --
@@ -868,6 +882,41 @@ CREATE INDEX planner_items_user_idx ON public.planner_items USING btree (user_id
 
 
 --
+-- Name: users_nickname_lower_prefix; Type: INDEX; Schema: public; Owner: bairbadmaev
+--
+
+CREATE INDEX users_nickname_lower_prefix ON public.users USING btree (lower((nickname)::text) text_pattern_ops);
+
+
+--
+-- Name: users_nickname_lower_unique; Type: INDEX; Schema: public; Owner: bairbadmaev
+--
+
+CREATE UNIQUE INDEX users_nickname_lower_unique ON public.users USING btree (lower((nickname)::text));
+
+
+--
+-- Name: users_nickname_trgm; Type: INDEX; Schema: public; Owner: bairbadmaev
+--
+
+CREATE INDEX users_nickname_trgm ON public.users USING gin (nickname public.gin_trgm_ops);
+
+
+--
+-- Name: users_username_lower_prefix; Type: INDEX; Schema: public; Owner: bairbadmaev
+--
+
+CREATE INDEX users_username_lower_prefix ON public.users USING btree (lower((username)::text) text_pattern_ops);
+
+
+--
+-- Name: users_username_trgm; Type: INDEX; Schema: public; Owner: bairbadmaev
+--
+
+CREATE INDEX users_username_trgm ON public.users USING gin (username public.gin_trgm_ops);
+
+
+--
 -- Name: chat_messages chat_messages_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: bairbadmaev
 --
 
@@ -951,5 +1000,5 @@ ALTER TABLE ONLY public.reactions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict dKDwYPr4ana3r8beaiejPliwqjIcBvREHwfhRvBzqdx5VKrfj1FXtxQi5bjdBvy
+\unrestrict vBeXAdanIhIDWqRnAB37yvpFkqhKXEvq3DlPyagphJglqNxY7j5yPUQx9ppmFhE
 

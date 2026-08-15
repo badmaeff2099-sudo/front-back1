@@ -31,8 +31,14 @@ try {
 
     // Check nickname uniqueness if provided
     $newNickname = $data['nickname'] ?? null;
+    if ($newNickname !== null) {
+        $newNickname = trim($newNickname);
+    }
     if ($newNickname !== null && $newNickname !== '') {
-        $nickCheck = $pdo->prepare("SELECT id FROM users WHERE nickname = :nickname AND id != :user_id");
+        // lower(...) — сравнение без учёта регистра, чтобы совпадало с
+        // уникальным индексом users_nickname_lower_unique. Иначе "Ivan" прошёл бы
+        // проверку при существующем "ivan" и упал бы на индексе с 500-й ошибкой.
+        $nickCheck = $pdo->prepare("SELECT id FROM users WHERE lower(nickname) = lower(:nickname) AND id != :user_id");
         $nickCheck->execute([':nickname' => $newNickname, ':user_id' => $user_id]);
         if ($nickCheck->fetch()) {
             echo json_encode([

@@ -78,17 +78,40 @@ export default function FriendsPage({ currentUser, onBack, onSelectUser }: Frien
 
   useEffect(() => {
     if (searchTimeout.current) clearTimeout(searchTimeout.current)
-    const q = query.trim().toLowerCase()
+    // Пользователи набирают никнейм как "@ivan" — ведущую собаку игнорируем.
+    const q = query.trim().replace(/^@+/, "").toLowerCase()
     if (!q) {
       setSearchResults([])
+      setLoadingSearch(false)
       return
     }
     setLoadingSearch(true)
     searchTimeout.current = setTimeout(async () => {
-      const matched = allUsers.filter((u) =>
-        u.username.toLowerCase().includes(q) ||
-        (u.nickname && u.nickname.toLowerCase().includes(q))
-      )
+      // Ищем на сервере — по началу имени И никнейма, регистронезависимо.
+      // Локальный allUsers — запасной вариант, если запрос не удался.
+      let matched: SearchUser[]
+      try {
+        const res = await getUsers("", q)
+        matched = res.success
+          ? res.users.filter((u: SearchUser) => u.id !== currentUser.id)
+          : []
+      } catch {
+        matched = allUsers.filter((u) =>
+          u.username.toLowerCase().startsWith(q) ||
+          (u.nickname ?? "").toLowerCase().startsWith(q)
+        )
+      }
+
+      // По алфавиту: совпадения по имени выше совпадений только по никнейму.
+      matched.sort((a, b) => {
+        const rankOf = (u: SearchUser) =>
+          u.username.toLowerCase().startsWith(q) ? 0 : 1
+        return (
+          rankOf(a) - rankOf(b) ||
+          a.username.localeCompare(b.username, "ru")
+        )
+      })
+
       // Fetch friend status for each matched user
       const withStatus: UserWithStatus[] = await Promise.all(
         matched.map(async (u) => {
@@ -161,6 +184,18 @@ export default function FriendsPage({ currentUser, onBack, onSelectUser }: Frien
 
   const isMyFriend = (userId: number) => friends.some((f) => f.id === userId)
 
+  // Список друзей фильтруем по тому же правилу — по началу имени/никнейма,
+  // иначе поиск сверху и список ниже вели бы себя по-разному.
+  const friendQuery = query.trim().replace(/^@+/, "").toLowerCase()
+  const visibleFriends = friendQuery
+    ? friends
+        .filter((f) =>
+          f.username.toLowerCase().startsWith(friendQuery) ||
+          (f.nickname ?? "").toLowerCase().startsWith(friendQuery)
+        )
+        .sort((a, b) => a.username.localeCompare(b.username, "ru"))
+    : friends
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] p-6">
       <div className="max-w-2xl mx-auto">
@@ -183,7 +218,7 @@ export default function FriendsPage({ currentUser, onBack, onSelectUser }: Frien
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск по имени или никнейму..."
+            placeholder="Поиск по началу имени или никнейма..."
             className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[#111] border border-[#1e1e1e] text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[#333] transition-colors"
           />
         </div>
@@ -310,7 +345,11 @@ export default function FriendsPage({ currentUser, onBack, onSelectUser }: Frien
         {/* Friends list */}
         <div className="bg-[#111] border border-[#1e1e1e] rounded-xl overflow-hidden">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider px-4 pt-4 pb-2">
-            Друзья {friends.length > 0 && `(${friends.length})`}
+            Друзья {friends.length > 0 && (
+              friendQuery
+                ? `(${visibleFriends.length} из ${friends.length})`
+                : `(${friends.length})`
+            )}
           </p>
           {loadingFriends ? (
             <div className="flex flex-col gap-2 p-4">
@@ -325,9 +364,13 @@ export default function FriendsPage({ currentUser, onBack, onSelectUser }: Frien
             <p className="text-sm text-muted-foreground text-center py-8">
               Пока нет друзей. Найдите кого-нибудь через поиск выше.
             </p>
+          ) : visibleFriends.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Среди друзей никого не найдено
+            </p>
           ) : (
             <div className="divide-y divide-[#1a1a1a]">
-              {friends.map((friend) => (
+              {visibleFriends.map((friend) => (
                 <div
                   key={friend.id}
                   className="group flex items-center gap-3 px-4 py-3 hover:bg-[#161616] transition-colors"

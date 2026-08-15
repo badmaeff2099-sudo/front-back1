@@ -19,9 +19,15 @@ $pdo = getPDO();
 // Ensure avatar_url and nickname columns exist
 try { $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500)"); } catch (PDOException $e) {}
 try { $pdo->exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(50)"); } catch (PDOException $e) {}
-try { $pdo->exec("ALTER TABLE users ADD CONSTRAINT IF NOT EXISTS users_nickname_unique UNIQUE (nickname)"); } catch (PDOException $e) {}
+// Уникальность никнейма без учёта регистра.
+// Раньше здесь был ADD CONSTRAINT IF NOT EXISTS — такого синтаксиса в PostgreSQL
+// нет, запрос всегда падал в пустой catch, и ограничение по факту не создавалось.
+try { $pdo->exec("CREATE UNIQUE INDEX IF NOT EXISTS users_nickname_lower_unique ON users (lower(nickname))"); } catch (PDOException $e) {}
 
 $location = $_GET['location'] ?? '';
+// Поиск по имени ИЛИ никнейму. Ведущий '@' отбрасываем — пользователи
+// привычно набирают никнейм как "@ivan".
+$search = ltrim(trim($_GET['search'] ?? ''), '@');
 
 try {
 
@@ -53,27 +59,41 @@ try {
         ON p.user_id = u.id
     ";
 
+    $where = [];
+    $params = [];
+
     if ($location) {
-        $sql .= " WHERE u.location = :location";
+        $where[] = "u.location = :location";
+        $params[':location'] = $location;
+    }
+
+    if ($search !== '') {
+        // Поиск по НАЧАЛУ имени или никнейма: 'ma' -> Maria, Max, но не Erdem.
+        // Паттерн без ведущего '%' — совпадение строго с первых букв, в том
+        // порядке, в котором они набраны.
+        // ILIKE — регистронезависимо. Спецсимволы LIKE экранируем, иначе
+        // '%' в запросе выдал бы всех подряд.
+        $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
+        $where[] = "(u.username ILIKE :search ESCAPE '\\' OR u.nickname ILIKE :search ESCAPE '\\')";
+        $params[':search'] = $escaped . '%';
+    }
+
+    if ($where) {
+        $sql .= " WHERE " . implode(" AND ", $where);
     }
 
     $sql .= "
     GROUP BY u.id
-    ORDER BY u.id
     ";
 
+    // При поиске сортируем по алфавиту: сначала совпадения по имени,
+    // потом по никнейму. Без поиска порядок прежний — по id.
+    $sql .= $search !== ''
+        ? " ORDER BY lower(u.username), lower(u.nickname) "
+        : " ORDER BY u.id ";
+
     $stmt = $pdo->prepare($sql);
-
-    if ($location) {
-
-        $stmt->execute([
-            ':location' => $location
-        ]);
-
-    } else {
-
-        $stmt->execute();
-    }
+    $stmt->execute($params);
 
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

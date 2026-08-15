@@ -16,7 +16,7 @@ if (!$userId) {
 try {
     // Accepted friends
     $stmt = $pdo->prepare("
-        SELECT u.id, u.username, u.location, u.avatar_url, f.id as friendship_id
+        SELECT u.id, u.username, u.nickname, u.location, u.avatar_url, f.id as friendship_id
         FROM friendships f
         JOIN users u ON (
             CASE WHEN f.from_user_id = :uid1 THEN f.to_user_id ELSE f.from_user_id END = u.id
@@ -28,7 +28,7 @@ try {
 
     // Incoming pending requests
     $inStmt = $pdo->prepare("
-        SELECT f.id as friendship_id, u.id, u.username, u.location
+        SELECT f.id as friendship_id, u.id, u.username, u.nickname, u.location, u.avatar_url
         FROM friendships f
         JOIN users u ON f.from_user_id = u.id
         WHERE f.to_user_id = :uid AND f.status = 'pending'
@@ -38,7 +38,7 @@ try {
 
     // Outgoing pending requests
     $outStmt = $pdo->prepare("
-        SELECT f.id as friendship_id, u.id, u.username, f.status
+        SELECT f.id as friendship_id, u.id, u.username, u.nickname, f.status
         FROM friendships f
         JOIN users u ON f.to_user_id = u.id
         WHERE f.from_user_id = :uid AND f.status = 'pending'
