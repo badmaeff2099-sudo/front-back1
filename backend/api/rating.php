@@ -16,14 +16,18 @@ require_once 'discipline_helper.php';
 
 $pdo = getPDO();
 
+// Фильтр по локации: пустая строка = все локации
+$location = trim($_GET['location'] ?? '');
+
 try {
 
-    $stmt = $pdo->query("
+    $sql = "
 
         SELECT
             u.id,
             u.username,
             u.goal,
+            u.location,
             u.created_at,
             u.avatar_url,
 
@@ -54,19 +58,44 @@ try {
 
         LEFT JOIN progress p
             ON p.user_id = u.id
+    ";
 
+    if ($location !== '') {
+        $sql .= " WHERE u.location = :location ";
+    }
+
+    $sql .= "
         GROUP BY
             u.id,
             u.username,
             u.goal,
+            u.location,
             u.created_at,
             u.avatar_url
 
         ORDER BY total_days DESC
 
-    ");
+    ";
+
+    $stmt = $pdo->prepare($sql);
+
+    if ($location !== '') {
+        $stmt->execute([':location' => $location]);
+    } else {
+        $stmt->execute();
+    }
 
     $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Список всех непустых локаций — для выпадающего меню на фронте
+    $locStmt = $pdo->query("
+        SELECT DISTINCT u.location
+        FROM users u
+        WHERE u.location IS NOT NULL
+          AND btrim(u.location) <> ''
+        ORDER BY u.location
+    ");
+    $locations = $locStmt->fetchAll(PDO::FETCH_COLUMN);
 
     foreach ($users as &$user) {
 
@@ -106,7 +135,8 @@ try {
 
     echo json_encode([
         "success" => true,
-        "users" => $users
+        "users" => $users,
+        "locations" => $locations
     ], JSON_UNESCAPED_UNICODE);
 
 } catch (PDOException $e) {

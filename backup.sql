@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict DQKBHA2KXUZ4GkbiRL9De6PbiwdpwX454YyMLfD9HXeekcQPqC9PyCwaynZLrEe
+\restrict k6hFRwsKFzMqbHgGVfud5hGJvtjw38Lab6QD0Gfe3dCp2u5GYlJUPkuOLpLaPzv
 
 -- Dumped from database version 17.10 (Homebrew)
 -- Dumped by pg_dump version 17.10 (Homebrew)
@@ -58,6 +58,45 @@ ALTER SEQUENCE public.chat_messages_id_seq OWNER TO bairbadmaev;
 --
 
 ALTER SEQUENCE public.chat_messages_id_seq OWNED BY public.chat_messages.id;
+
+
+--
+-- Name: discipline_scores; Type: TABLE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE TABLE public.discipline_scores (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    completed_days integer DEFAULT 0 NOT NULL,
+    missed_days integer DEFAULT 0 NOT NULL,
+    score integer DEFAULT 0 NOT NULL,
+    calculated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    rest_days integer DEFAULT 0 NOT NULL
+);
+
+
+ALTER TABLE public.discipline_scores OWNER TO bairbadmaev;
+
+--
+-- Name: discipline_scores_id_seq; Type: SEQUENCE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE SEQUENCE public.discipline_scores_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.discipline_scores_id_seq OWNER TO bairbadmaev;
+
+--
+-- Name: discipline_scores_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: bairbadmaev
+--
+
+ALTER SEQUENCE public.discipline_scores_id_seq OWNED BY public.discipline_scores.id;
 
 
 --
@@ -170,6 +209,56 @@ ALTER SEQUENCE public.habits_id_seq OWNER TO bairbadmaev;
 --
 
 ALTER SEQUENCE public.habits_id_seq OWNED BY public.habits.id;
+
+
+--
+-- Name: planner; Type: TABLE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE TABLE public.planner (
+    user_id integer NOT NULL,
+    last_date date DEFAULT CURRENT_DATE NOT NULL
+);
+
+
+ALTER TABLE public.planner OWNER TO bairbadmaev;
+
+--
+-- Name: planner_items; Type: TABLE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE TABLE public.planner_items (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    day_type character varying(10) NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    text text DEFAULT ''::text NOT NULL,
+    CONSTRAINT planner_items_day_type_check CHECK (((day_type)::text = ANY ((ARRAY['today'::character varying, 'tomorrow'::character varying])::text[])))
+);
+
+
+ALTER TABLE public.planner_items OWNER TO bairbadmaev;
+
+--
+-- Name: planner_items_id_seq; Type: SEQUENCE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE SEQUENCE public.planner_items_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.planner_items_id_seq OWNER TO bairbadmaev;
+
+--
+-- Name: planner_items_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: bairbadmaev
+--
+
+ALTER SEQUENCE public.planner_items_id_seq OWNED BY public.planner_items.id;
 
 
 --
@@ -299,6 +388,13 @@ ALTER TABLE ONLY public.chat_messages ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
+-- Name: discipline_scores id; Type: DEFAULT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.discipline_scores ALTER COLUMN id SET DEFAULT nextval('public.discipline_scores_id_seq'::regclass);
+
+
+--
 -- Name: friendships id; Type: DEFAULT; Schema: public; Owner: bairbadmaev
 --
 
@@ -317,6 +413,13 @@ ALTER TABLE ONLY public.goals500 ALTER COLUMN id SET DEFAULT nextval('public.goa
 --
 
 ALTER TABLE ONLY public.habits ALTER COLUMN id SET DEFAULT nextval('public.habits_id_seq'::regclass);
+
+
+--
+-- Name: planner_items id; Type: DEFAULT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.planner_items ALTER COLUMN id SET DEFAULT nextval('public.planner_items_id_seq'::regclass);
 
 
 --
@@ -351,6 +454,32 @@ COPY public.chat_messages (id, user_id, channel, message, created_at) FROM stdin
 
 
 --
+-- Data for Name: discipline_scores; Type: TABLE DATA; Schema: public; Owner: bairbadmaev
+--
+
+COPY public.discipline_scores (id, user_id, completed_days, missed_days, score, calculated_at, rest_days) FROM stdin;
+8	9	4	93	3	2026-08-15 23:16:10.138464	1
+1	6	19	80	14	2026-08-15 23:16:30.406652	1
+6	7	11	83	0	2026-08-11 15:55:35.536425	0
+7	8	7	87	0	2026-08-11 15:55:35.537439	0
+9	10	2	87	0	2026-08-11 15:55:35.53932	1
+10	11	6	84	0	2026-08-11 15:55:35.540198	0
+11	12	2	87	0	2026-08-11 15:55:35.540991	1
+12	13	1	86	0	2026-08-11 15:55:35.541783	2
+13	14	0	88	0	2026-08-11 15:55:35.54257	1
+14	15	1	86	0	2026-08-11 15:55:35.54335	2
+15	16	2	85	0	2026-08-11 15:55:35.544131	0
+16	18	2	56	0	2026-08-11 15:55:35.544891	0
+17	21	2	56	0	2026-08-11 15:55:35.545643	0
+18	22	3	53	0	2026-08-11 15:55:35.546411	2
+19	23	0	55	0	2026-08-11 15:55:35.547154	1
+20	24	1	53	0	2026-08-11 15:55:35.547759	2
+21	25	0	55	0	2026-08-11 15:55:35.548325	1
+22	26	1	54	0	2026-08-11 15:55:35.548704	1
+\.
+
+
+--
 -- Data for Name: friendships; Type: TABLE DATA; Schema: public; Owner: bairbadmaev
 --
 
@@ -363,12 +492,12 @@ COPY public.friendships (id, from_user_id, to_user_id, status, created_at) FROM 
 6	8	11	pending	2026-05-24 05:43:31.380295
 7	6	7	accepted	2026-06-07 01:44:51.057394
 9	18	7	accepted	2026-06-14 01:29:17.399973
-8	18	6	accepted	2026-06-14 01:29:06.007428
 11	21	6	accepted	2026-06-14 03:46:26.862617
 10	21	18	accepted	2026-06-14 03:46:21.597917
 12	21	7	accepted	2026-06-14 03:46:30.633433
 13	8	22	accepted	2026-06-16 11:46:07.643025
 14	22	11	pending	2026-06-16 11:48:11.315472
+15	9	6	accepted	2026-08-15 23:15:39.831494
 \.
 
 
@@ -395,6 +524,28 @@ COPY public.goals500 (id, user_id, "position", text, done, created_at) FROM stdi
 --
 
 COPY public.habits (id, user_id, title, total_days, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: planner; Type: TABLE DATA; Schema: public; Owner: bairbadmaev
+--
+
+COPY public.planner (user_id, last_date) FROM stdin;
+6	2026-08-11
+\.
+
+
+--
+-- Data for Name: planner_items; Type: TABLE DATA; Schema: public; Owner: bairbadmaev
+--
+
+COPY public.planner_items (id, user_id, day_type, "position", text) FROM stdin;
+56	6	today	0	
+57	6	today	1	
+58	6	today	2	
+59	6	today	3	
+60	6	today	4	
 \.
 
 
@@ -476,6 +627,13 @@ COPY public.progress (id, habit_id, day_date, completed, user_id, status) FROM s
 77	\N	2026-07-27	f	15	done
 78	\N	2026-07-27	f	6	rest
 79	\N	2026-08-02	f	6	done
+80	\N	2026-08-05	f	6	done
+81	\N	2026-08-06	f	6	done
+82	\N	2026-08-07	f	6	done
+83	\N	2026-08-11	f	6	done
+84	\N	2026-08-14	f	6	done
+85	\N	2026-08-15	f	6	done
+86	\N	2026-08-15	f	9	done
 \.
 
 
@@ -501,7 +659,6 @@ COPY public.users (id, username, email, password, created_at, location, goal, fu
 9	Ana	anna@gmail.com	$2y$12$ZygBNpELxHsM30QIoHqEgu/lEg472DnnE8C5mh.YZ7yc9.Ry9Y7Oy	2026-05-10	Улан-Удэ	Шахматы	\N	\N	\N	\N	\N
 11	Ivan	ivan@gmail.com	$2y$12$wuSDLuovEEE/zBVFkxdpmOEJHgieoYGpOKFDe63rv4T/rnj1BM0lm	2026-05-13	Москва	Бег	\N			\N	ivan
 7	Anton	anton@gmail.com	$2y$12$MLqm2ZxDjUmtL2FA47uh9uxdW7mDjd/vZ5SbAmQkMSFypFleAgckq	2026-05-10	Москва	Медитация	\N			/uploads/avatars/7.jpg	anton
-6	Max	max@gmail.com	$2y$12$kEO.RBZM.Ikp959E4V5d2utjCyO5gGxsT6bBsWjzc/hHteaRyP7n.	2026-05-08	Улан-Батор	Английский				\N	max
 18	Sam	sam@gmail.com	$2y$12$ndgvBjgblOzqmsCJoMpLguOP6H8UNm9DqYDZYemgRiBIgSq8H/AlK	2026-06-14	Москва	Английский	\N			\N	\N
 21	KIm	kim@gmail.com	$2y$12$cTOl8C2CgobQS7PR3mL79u.p1Re1Juq9b4e2KwQVM7oOlCO1K6xga	2026-06-14			\N	\N	\N	\N	\N
 22	Edik	edik@gmail.com	$2y$12$w0xnpEuDl4AcXmmo9f3wButZZHqOmHJRDlyxIfY9oERk71BWs6QSa	2026-06-14	Москва	Ходьба	\N			\N	\N
@@ -510,6 +667,7 @@ COPY public.users (id, username, email, password, created_at, location, goal, fu
 24	Olga	olga@gmail.com	$2y$12$a62TpqofxcuW9TqMB8JTBOZ95Whev4bQpLo.vZgya/uY67NCQbIg.	2026-06-16	Москва	Спорт	\N	\N	\N	\N	\N
 25	Nina	nina@gmail.com	$2y$12$8coO3xv1OnbuyoFTlp.tC.xvo4j0ifZ7jlZS8EpiRf7sXeFk7lPhm	2026-06-16	Новосибирск		\N			\N	\N
 26	Alim	alim@gmail.com	$2y$12$CnFVQYIOrPOXXa2VoSPiS.D3mC/64sDR90TWg2Jtw7biGUTtTlqLS	2026-06-16	Улан-Удэ	Бег	\N	\N	\N	\N	\N
+6	Max	max@gmail.com	$2y$12$kEO.RBZM.Ikp959E4V5d2utjCyO5gGxsT6bBsWjzc/hHteaRyP7n.	2026-05-08	Улан-Батор	Английский				\N	m
 \.
 
 
@@ -521,10 +679,17 @@ SELECT pg_catalog.setval('public.chat_messages_id_seq', 2, true);
 
 
 --
+-- Name: discipline_scores_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
+--
+
+SELECT pg_catalog.setval('public.discipline_scores_id_seq', 478, true);
+
+
+--
 -- Name: friendships_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.friendships_id_seq', 14, true);
+SELECT pg_catalog.setval('public.friendships_id_seq', 15, true);
 
 
 --
@@ -542,10 +707,17 @@ SELECT pg_catalog.setval('public.habits_id_seq', 1, true);
 
 
 --
+-- Name: planner_items_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
+--
+
+SELECT pg_catalog.setval('public.planner_items_id_seq', 60, true);
+
+
+--
 -- Name: progress_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.progress_id_seq', 79, true);
+SELECT pg_catalog.setval('public.progress_id_seq', 86, true);
 
 
 --
@@ -568,6 +740,22 @@ SELECT pg_catalog.setval('public.users_id_seq', 26, true);
 
 ALTER TABLE ONLY public.chat_messages
     ADD CONSTRAINT chat_messages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: discipline_scores discipline_scores_pkey; Type: CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.discipline_scores
+    ADD CONSTRAINT discipline_scores_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: discipline_scores discipline_scores_user_id_key; Type: CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.discipline_scores
+    ADD CONSTRAINT discipline_scores_user_id_key UNIQUE (user_id);
 
 
 --
@@ -600,6 +788,22 @@ ALTER TABLE ONLY public.goals500
 
 ALTER TABLE ONLY public.habits
     ADD CONSTRAINT habits_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: planner_items planner_items_pkey; Type: CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.planner_items
+    ADD CONSTRAINT planner_items_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: planner planner_pkey; Type: CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.planner
+    ADD CONSTRAINT planner_pkey PRIMARY KEY (user_id);
 
 
 --
@@ -643,10 +847,24 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: discipline_scores_score_idx; Type: INDEX; Schema: public; Owner: bairbadmaev
+--
+
+CREATE INDEX discipline_scores_score_idx ON public.discipline_scores USING btree (score DESC);
+
+
+--
 -- Name: goals500_user_id_idx; Type: INDEX; Schema: public; Owner: bairbadmaev
 --
 
 CREATE INDEX goals500_user_id_idx ON public.goals500 USING btree (user_id, "position");
+
+
+--
+-- Name: planner_items_user_idx; Type: INDEX; Schema: public; Owner: bairbadmaev
+--
+
+CREATE INDEX planner_items_user_idx ON public.planner_items USING btree (user_id, day_type, "position");
 
 
 --
@@ -655,6 +873,14 @@ CREATE INDEX goals500_user_id_idx ON public.goals500 USING btree (user_id, "posi
 
 ALTER TABLE ONLY public.chat_messages
     ADD CONSTRAINT chat_messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: discipline_scores discipline_scores_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.discipline_scores
+    ADD CONSTRAINT discipline_scores_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
@@ -671,6 +897,22 @@ ALTER TABLE ONLY public.goals500
 
 ALTER TABLE ONLY public.habits
     ADD CONSTRAINT habits_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: planner_items planner_items_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.planner_items
+    ADD CONSTRAINT planner_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: planner planner_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.planner
+    ADD CONSTRAINT planner_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
@@ -709,5 +951,5 @@ ALTER TABLE ONLY public.reactions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict DQKBHA2KXUZ4GkbiRL9De6PbiwdpwX454YyMLfD9HXeekcQPqC9PyCwaynZLrEe
+\unrestrict k6hFRwsKFzMqbHgGVfud5hGJvtjw38Lab6QD0Gfe3dCp2u5GYlJUPkuOLpLaPzv
 

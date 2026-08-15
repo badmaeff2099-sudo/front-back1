@@ -68,8 +68,9 @@ export async function updateProfile(userId: number, data: object) {
   return res.json()
 }
 
-export async function getLeaderboard() {
-  return request('/rating.php')
+export async function getLeaderboard(location = '') {
+  const qs = location ? `?location=${encodeURIComponent(location)}` : ''
+  return request(`/rating.php${qs}`)
 }
 
 
