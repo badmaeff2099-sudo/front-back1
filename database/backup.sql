@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict CopevxfGTVQde95lDo6X5CK1Hnwo2XOgc1DTNQI1cnH319cxLGXWFJpjmrBqC6W
+\restrict dKDwYPr4ana3r8beaiejPliwqjIcBvREHwfhRvBzqdx5VKrfj1FXtxQi5bjdBvy
 
 -- Dumped from database version 17.10 (Homebrew)
 -- Dumped by pg_dump version 17.10 (Homebrew)
@@ -458,10 +458,10 @@ COPY public.chat_messages (id, user_id, channel, message, created_at) FROM stdin
 --
 
 COPY public.discipline_scores (id, user_id, completed_days, missed_days, score, calculated_at, rest_days) FROM stdin;
-1	6	17	78	10	2026-08-11 15:56:43.872149	1
+8	9	4	93	3	2026-08-15 23:16:10.138464	1
+1	6	19	80	14	2026-08-15 23:16:30.406652	1
 6	7	11	83	0	2026-08-11 15:55:35.536425	0
 7	8	7	87	0	2026-08-11 15:55:35.537439	0
-8	9	3	89	0	2026-08-11 15:55:35.538389	1
 9	10	2	87	0	2026-08-11 15:55:35.53932	1
 10	11	6	84	0	2026-08-11 15:55:35.540198	0
 11	12	2	87	0	2026-08-11 15:55:35.540991	1
@@ -492,12 +492,12 @@ COPY public.friendships (id, from_user_id, to_user_id, status, created_at) FROM 
 6	8	11	pending	2026-05-24 05:43:31.380295
 7	6	7	accepted	2026-06-07 01:44:51.057394
 9	18	7	accepted	2026-06-14 01:29:17.399973
-8	18	6	accepted	2026-06-14 01:29:06.007428
 11	21	6	accepted	2026-06-14 03:46:26.862617
 10	21	18	accepted	2026-06-14 03:46:21.597917
 12	21	7	accepted	2026-06-14 03:46:30.633433
 13	8	22	accepted	2026-06-16 11:46:07.643025
 14	22	11	pending	2026-06-16 11:48:11.315472
+15	9	6	accepted	2026-08-15 23:15:39.831494
 \.
 
 
@@ -631,6 +631,9 @@ COPY public.progress (id, habit_id, day_date, completed, user_id, status) FROM s
 81	\N	2026-08-06	f	6	done
 82	\N	2026-08-07	f	6	done
 83	\N	2026-08-11	f	6	done
+84	\N	2026-08-14	f	6	done
+85	\N	2026-08-15	f	6	done
+86	\N	2026-08-15	f	9	done
 \.
 
 
@@ -679,14 +682,14 @@ SELECT pg_catalog.setval('public.chat_messages_id_seq', 2, true);
 -- Name: discipline_scores_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.discipline_scores_id_seq', 420, true);
+SELECT pg_catalog.setval('public.discipline_scores_id_seq', 478, true);
 
 
 --
 -- Name: friendships_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.friendships_id_seq', 14, true);
+SELECT pg_catalog.setval('public.friendships_id_seq', 15, true);
 
 
 --
@@ -714,7 +717,7 @@ SELECT pg_catalog.setval('public.planner_items_id_seq', 60, true);
 -- Name: progress_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.progress_id_seq', 83, true);
+SELECT pg_catalog.setval('public.progress_id_seq', 86, true);
 
 
 --
@@ -948,5 +951,5 @@ ALTER TABLE ONLY public.reactions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict CopevxfGTVQde95lDo6X5CK1Hnwo2XOgc1DTNQI1cnH319cxLGXWFJpjmrBqC6W
+\unrestrict dKDwYPr4ana3r8beaiejPliwqjIcBvREHwfhRvBzqdx5VKrfj1FXtxQi5bjdBvy
 

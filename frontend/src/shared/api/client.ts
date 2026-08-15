@@ -93,6 +93,10 @@ export async function getFriends(userId: number) {
   return request(`/friends/list.php?user_id=${userId}`)
 }
 
+export async function deleteFriend(friendshipId: number, userId: number) {
+  return request('/friends/delete.php', { method: 'POST', body: JSON.stringify({ friendship_id: friendshipId, user_id: userId }) })
+}
+
 export async function getFriendStatus(userId: number, targetId: number) {
   return request(`/friends/status.php?user_id=${userId}&target_id=${targetId}`)
 }

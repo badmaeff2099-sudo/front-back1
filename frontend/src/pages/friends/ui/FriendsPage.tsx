@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react"
 import { ArrowLeft, Search, UserPlus, UserCheck, Clock, Check, X, Users } from "lucide-react"
 import { toast } from "sonner"
-import { getFriends, getUsers, sendFriendRequest, respondFriendRequest, getFriendStatus } from "@/shared/api/client"
+import { getFriends, getUsers, sendFriendRequest, respondFriendRequest, getFriendStatus, deleteFriend } from "@/shared/api/client"
 import { UserAvatar } from "@/entities/user/ui/UserAvatar"
 import type { User as UserType } from "@/entities/user/model/types"
 
@@ -142,6 +142,19 @@ export default function FriendsPage({ currentUser, onBack, onSelectUser }: Frien
           )
         )
       }
+    }
+    setActionLoading(null)
+  }
+
+  const handleDeleteFriend = async (friendshipId: number, username: string) => {
+    if (!window.confirm(`Удалить ${username} из друзей?`)) return
+    setActionLoading(friendshipId)
+    const res = await deleteFriend(friendshipId, currentUser.id)
+    if (res.success) {
+      setFriends((prev) => prev.filter((f) => f.friendship_id !== friendshipId))
+      toast.success(`${username} удалён из друзей`)
+    } else {
+      toast.error("Не удалось удалить из друзей")
     }
     setActionLoading(null)
   }
@@ -315,22 +328,35 @@ export default function FriendsPage({ currentUser, onBack, onSelectUser }: Frien
           ) : (
             <div className="divide-y divide-[#1a1a1a]">
               {friends.map((friend) => (
-                <button
+                <div
                   key={friend.id}
-                  onClick={() => onSelectUser({ ...friend, completed_dates: friend.completed_dates ?? [] } as UserType)}
-                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-[#161616] transition-colors text-left"
+                  className="group flex items-center gap-3 px-4 py-3 hover:bg-[#161616] transition-colors"
                 >
-                  <UserAvatar avatarUrl={friend.avatar_url} username={friend.username} size={40} />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{friend.username}</p>
-                    {friend.nickname && (
-                      <p className="text-xs text-muted-foreground">@{friend.nickname}</p>
-                    )}
-                    {friend.location && (
-                      <p className="text-xs text-muted-foreground/60 truncate">{friend.location}</p>
-                    )}
-                  </div>
-                </button>
+                  <button
+                    onClick={() => onSelectUser({ ...friend, completed_dates: friend.completed_dates ?? [] } as UserType)}
+                    className="flex items-center gap-3 flex-1 min-w-0 text-left"
+                  >
+                    <UserAvatar avatarUrl={friend.avatar_url} username={friend.username} size={40} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{friend.username}</p>
+                      {friend.nickname && (
+                        <p className="text-xs text-muted-foreground">@{friend.nickname}</p>
+                      )}
+                      {friend.location && (
+                        <p className="text-xs text-muted-foreground/60 truncate">{friend.location}</p>
+                      )}
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => handleDeleteFriend(friend.friendship_id, friend.username)}
+                    disabled={actionLoading === friend.friendship_id}
+                    title={`Удалить ${friend.username} из друзей`}
+                    aria-label={`Удалить ${friend.username} из друзей`}
+                    className="shrink-0 w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-red-500/10 hover:text-red-500 transition-all disabled:opacity-50"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
