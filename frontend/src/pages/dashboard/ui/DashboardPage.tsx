@@ -36,6 +36,8 @@ import type { User as UserType } from "@/entities/user/model/types";
 
 const PARTICIPANTS_PER_PAGE = 20;
 const CYCLE = 30; // квадратиков в столбце
+const CELL = 18; // сторона квадратика, px
+const CELL_RADIUS = 4;
 
 /* ─── Helpers ─────────────────────────────────────────────────── */
 
@@ -197,7 +199,7 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
           ? "ring-2 ring-brand/40 rounded-xl bg-brand/5 px-2 py-3"
           : "px-2 py-3"
       }`}
-      style={{ minWidth: 64 }}
+      style={{ minWidth: 56 }}
     >
       {/* Avatar + name */}
       <Tooltip>
@@ -246,7 +248,7 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
       </div>
 
       {/* 30 squares — rendered top to bottom (slot 29 on top, slot 0 on bottom — fills bottom-up) */}
-      <div className="flex flex-col gap-[3px]">
+      <div className="flex flex-col items-center gap-[3px]">
         {[...slots].reverse().map((slot) => {
           const isToday = slot.state === "today";
           const isDone = slot.state === "done";
@@ -299,9 +301,9 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
                     onClick={handleMark}
                     disabled={marking}
                     style={{
-                      width: 36,
-                      height: 20,
-                      borderRadius: 5,
+                      width: CELL,
+                      height: CELL,
+                      borderRadius: CELL_RADIUS,
                       backgroundColor: bg,
                       border,
                       boxShadow: shadow,
@@ -325,9 +327,9 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
               <TooltipTrigger render={
                 <div
                   style={{
-                    width: 36,
-                    height: 20,
-                    borderRadius: 5,
+                    width: CELL,
+                    height: CELL,
+                    borderRadius: CELL_RADIUS,
                     backgroundColor: bg,
                     border,
                     boxShadow: shadow,
@@ -815,11 +817,15 @@ export default function DashboardPage({
                   {loading ? (
                     <div className="flex gap-4 p-6 animate-pulse">
                       {[...Array(6)].map((_, i) => (
-                        <div key={i} className="flex flex-col items-center gap-2">
-                          <div className="w-9 h-9 rounded-full bg-[#2a2a2a]" />
-                          <div className="w-8 h-3 rounded bg-[#222]" />
+                        <div key={i} className="flex flex-col items-center gap-[3px]">
+                          <div className="w-9 h-9 rounded-full bg-[#2a2a2a] mb-1" />
+                          <div className="w-8 h-3 rounded bg-[#222] mb-1" />
                           {[...Array(CYCLE)].map((_, j) => (
-                            <div key={j} className="w-9 h-5 rounded bg-[#1e1e1e]" />
+                            <div
+                              key={j}
+                              className="rounded-[4px] bg-[#1e1e1e]"
+                              style={{ width: CELL, height: CELL }}
+                            />
                           ))}
                         </div>
                       ))}
@@ -938,19 +944,19 @@ export default function DashboardPage({
                           Легенда:
                         </span>
                         <div className="flex items-center gap-1.5">
-                          <div className="w-4 h-3 rounded-[3px]" style={{ backgroundColor: "#166534", border: "1px solid #15803d" }} />
+                          <div className="w-3 h-3 rounded-[3px]" style={{ backgroundColor: "#166534", border: "1px solid #15803d" }} />
                           <span className="text-[10px] text-muted-foreground/60">Выполнено</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <div className="w-4 h-3 rounded-[3px]" style={{ backgroundColor: "#3b0f0f", border: "1px solid #7f1d1d" }} />
+                          <div className="w-3 h-3 rounded-[3px]" style={{ backgroundColor: "#3b0f0f", border: "1px solid #7f1d1d" }} />
                           <span className="text-[10px] text-muted-foreground/60">Пропущено</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <div className="w-4 h-3 rounded-[3px]" style={{ backgroundColor: "#3d2e00", border: "1.5px solid #faad14" }} />
+                          <div className="w-3 h-3 rounded-[3px]" style={{ backgroundColor: "#3d2e00", border: "1.5px solid #faad14" }} />
                           <span className="text-[10px] text-muted-foreground/60">Сегодня</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <div className="w-4 h-3 rounded-[3px]" style={{ backgroundColor: "#1e1e1e", border: "1px solid #2a2a2a" }} />
+                          <div className="w-3 h-3 rounded-[3px]" style={{ backgroundColor: "#1e1e1e", border: "1px solid #2a2a2a" }} />
                           <span className="text-[10px] text-muted-foreground/60">Не началось</span>
                         </div>
                       </div>
