@@ -121,7 +121,7 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
             { label: "Участников", value: users.length },
             { label: "Лидер", value: bestUser?.username || "—" },
           ].map((s) => (
-            <div key={s.label} className="leaderboard-stat-card p-5">
+            <div key={s.label} className="leaderboard-stat-card p-5 text-center">
               <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
               <p className="text-xl font-bold text-foreground">{s.value}</p>
             </div>
