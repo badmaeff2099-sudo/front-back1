@@ -84,133 +84,138 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
   const getPlace = (i: number) => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`
 
   const SortHeader = ({ label, k }: { label: string; k: SortKey }) => (
-    <th className="px-4 py-3 text-left text-xs text-muted-foreground font-medium cursor-pointer hover:text-foreground select-none" onClick={() => handleSort(k)}>
+    <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium whitespace-nowrap cursor-pointer hover:text-foreground select-none" onClick={() => handleSort(k)}>
       {label} {sortKey === k ? (sortDir === "desc" ? "↓" : "↑") : ""}
     </th>
   )
 
   return (
     <div className="leaderboard-page">
-      <Button variant="ghost" onClick={onBack} className="mb-5 text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4 mr-2" /> Назад
-      </Button>
+      <div className="leaderboard-inner">
+        <Button variant="ghost" onClick={onBack} className="mb-4 text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="h-4 w-4 mr-2" /> Назад
+        </Button>
 
-      <div className="flex flex-col gap-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground mb-1">🏆 Рейтинг участников</h2>
-            <p className="text-sm text-muted-foreground">Самые дисциплинированные участники Chainify</p>
+        <div className="flex flex-col gap-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold text-foreground mb-0.5">🏆 Рейтинг участников</h2>
+              <p className="text-sm text-muted-foreground">Самые дисциплинированные участники Chainify</p>
+            </div>
+
+            <Select value={location} onValueChange={setLocation}>
+              <SelectTrigger className="h-9 w-[185px] shrink-0 bg-[#141414] border-[#252525] text-foreground">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <SelectValue placeholder="Все локации" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_LOCATIONS}>Все локации</SelectItem>
+                {locations.map(loc => (
+                  <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <Select value={location} onValueChange={setLocation}>
-            <SelectTrigger className="h-9 w-[190px] shrink-0 bg-[#141414] border-[#252525] text-foreground">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <SelectValue placeholder="Все локации" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_LOCATIONS}>Все локации</SelectItem>
-              {locations.map(loc => (
-                <SelectItem key={loc} value={loc}>{loc}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: "Участников", value: users.length },
+              { label: "Лидер", value: bestUser?.username || "—" },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="leaderboard-stat-card px-4 py-3 flex items-baseline justify-between gap-3"
+              >
+                <p className="text-xs text-muted-foreground shrink-0">{s.label}</p>
+                <p className="text-base font-bold text-foreground truncate">{s.value}</p>
+              </div>
+            ))}
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {[
-            { label: "Участников", value: users.length },
-            { label: "Лидер", value: bestUser?.username || "—" },
-          ].map((s) => (
-            <div key={s.label} className="leaderboard-stat-card p-5 text-center">
-              <p className="text-xs text-muted-foreground mb-1">{s.label}</p>
-              <p className="text-xl font-bold text-foreground">{s.value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="leaderboard-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[#1e1e1e]">
-                  <th className="px-4 py-3 text-left text-xs text-muted-foreground font-medium w-16"></th>
-                  <th className="px-4 py-3 text-left text-xs text-muted-foreground font-medium">Участник</th>
-                  <th className="px-4 py-3 text-left text-xs text-muted-foreground font-medium">Цикл</th>
-                  <SortHeader label="Дней" k="total_days" />
-                  <SortHeader label="Серия" k="streak" />
-                  <SortHeader label="Discipline Score" k="discipline_score" />
-                </tr>
-              </thead>
-              <tbody>
-                {sortedUsers.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                      Нет участников в этой локации
-                    </td>
+          <div className="leaderboard-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-[#1e1e1e]">
+                    <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium w-14"></th>
+                    <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium">Участник</th>
+                    <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium">Цикл</th>
+                    <SortHeader label="Дней" k="total_days" />
+                    <SortHeader label="Серия" k="streak" />
+                    <SortHeader label="Discipline Score" k="discipline_score" />
                   </tr>
-                )}
-                {sortedUsers.map((user, index) => {
-                  const rank = getRank(user.total_days)
-                  const streak = calcStreak(user.completed_dates, user.rest_dates)
-                  const score = scoreOf(user)
-                  const cycle = calcCycle(user.created_at, user.completed_dates, user.rest_dates)
-                  const isMe = currentUser?.username === user.username
-                  return (
-                    <tr key={user.id} className={`border-b border-[#1a1a1a] hover:bg-white/[0.02] transition-colors ${isMe ? "bg-brand/5" : ""}`}>
-                      <td className="px-4 py-3 text-xl font-bold">{getPlace(index)}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <UserAvatar avatarUrl={user.avatar_url} username={user.username} size={40} />
-                          <div>
-                            <p className="font-semibold text-foreground text-sm">{user.username}</p>
-                            <span className="text-xs px-2 py-0.5 rounded-full inline-block mt-0.5" style={{ background: rank.color + "22", color: rank.color }}>
-                              {rank.icon} {rank.title}
-                            </span>
-                            {user.goal && <p className="text-xs text-muted-foreground mt-0.5">{user.goal}</p>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="min-w-[150px]">
-                          <div className="flex items-baseline justify-between gap-2 mb-1">
-                            <p className="text-xs font-semibold text-foreground">
-                              День {cycle.dayInCycle} / {CYCLE_LENGTH}
-                            </p>
-                            <span className="text-[10px] text-muted-foreground shrink-0">
-                              цикл {cycle.cycleNumber}
-                            </span>
-                          </div>
-                          {/* Прогресс — по календарю цикла, а не по выполненным дням */}
-                          <Progress value={(cycle.dayInCycle / CYCLE_LENGTH) * 100} className="h-1.5" />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Выполнено: {cycle.doneInCycle} · осталось дней: {cycle.daysLeft}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-brand/10 text-brand">
-                          <CheckCircle className="h-3 w-3" /> {user.total_days}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-400">
-                          <Flame className="h-3 w-3" /> {streak}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold tabular-nums ${
-                            score >= 0 ? "bg-brand/10 text-brand" : "bg-red-500/10 text-red-400"
-                          }`}
-                        >
-                          <Target className="h-3 w-3" /> {score}
-                        </span>
+                </thead>
+                <tbody>
+                  {sortedUsers.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                        Нет участников в этой локации
                       </td>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                  )}
+                  {sortedUsers.map((user, index) => {
+                    const rank = getRank(user.total_days)
+                    const streak = calcStreak(user.completed_dates, user.rest_dates)
+                    const score = scoreOf(user)
+                    const cycle = calcCycle(user.created_at, user.completed_dates, user.rest_dates)
+                    const isMe = currentUser?.username === user.username
+                    return (
+                      <tr key={user.id} className={`border-b border-[#1a1a1a] hover:bg-white/[0.02] transition-colors ${isMe ? "bg-brand/5" : ""}`}>
+                        <td className="px-4 py-2.5 text-lg font-bold">{getPlace(index)}</td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <UserAvatar avatarUrl={user.avatar_url} username={user.username} size={36} />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-foreground text-sm leading-tight truncate">{user.username}</p>
+                              <span className="text-[11px] px-2 py-0.5 rounded-full inline-block mt-0.5 leading-tight" style={{ background: rank.color + "22", color: rank.color }}>
+                                {rank.icon} {rank.title}
+                              </span>
+                              {user.goal && <p className="text-xs text-muted-foreground mt-0.5 truncate">{user.goal}</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="min-w-[152px]">
+                            <div className="flex items-baseline justify-between gap-2 mb-1">
+                              <p className="text-xs font-semibold text-foreground whitespace-nowrap">
+                                День {cycle.dayInCycle} / {CYCLE_LENGTH}
+                              </p>
+                              <span className="text-[11px] text-muted-foreground shrink-0">
+                                цикл {cycle.cycleNumber}
+                              </span>
+                            </div>
+                            {/* Прогресс — по календарю цикла, а не по выполненным дням */}
+                            <Progress value={(cycle.dayInCycle / CYCLE_LENGTH) * 100} className="h-1.5" />
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              Выполнено: {cycle.doneInCycle} · осталось: {cycle.daysLeft}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-brand/10 text-brand">
+                            <CheckCircle className="h-3 w-3" /> {user.total_days}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-400">
+                            <Flame className="h-3 w-3" /> {streak}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums ${
+                              score >= 0 ? "bg-brand/10 text-brand" : "bg-red-500/10 text-red-400"
+                            }`}
+                          >
+                            <Target className="h-3 w-3" /> {score}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

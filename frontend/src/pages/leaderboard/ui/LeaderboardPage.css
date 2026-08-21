@@ -9,9 +9,15 @@
 }
 
 .leaderboard-page {
-  padding: 32px 48px;
+  padding: 32px 32px;
   min-height: 100vh;
   background: #0a0a0a;
+}
+
+/* Контент центрируется и не растягивается на всю ширину экрана */
+.leaderboard-inner {
+  max-width: 1100px;
+  margin: 0 auto;
 }
 
 .leaderboard-card {
