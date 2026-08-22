@@ -55,6 +55,58 @@
   border-color: #2a2a2a !important;
 }
 
+/* ─── Таблица: фиксированная сетка ────────────────────────────
+   table-layout: fixed + colgroup — ширина колонок считается по
+   <col>, а не по содержимому, поэтому при сортировке столбцы не
+   пересчитываются и не съезжают вбок. */
+.leaderboard-table {
+  width: 100%;
+  min-width: 880px;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.leaderboard-table .col-place  { width: 64px; }
+.leaderboard-table .col-user   { width: 264px; }
+.leaderboard-table .col-cycle  { width: 188px; }
+.leaderboard-table .col-days   { width: 104px; }
+.leaderboard-table .col-streak { width: 104px; }
+.leaderboard-table .col-score  { width: 156px; }
+
+.leaderboard-table th,
+.leaderboard-table td {
+  overflow: hidden;
+}
+
+/* Высота строки одна и та же независимо от того, есть ли у участника
+   цель/ранг — контент клипается внутренним блоком фиксированной высоты. */
+.leaderboard-table tbody tr.leaderboard-row {
+  height: 76px;
+}
+
+.leaderboard-table tbody tr.leaderboard-row > td {
+  height: 76px;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+
+.leaderboard-cell {
+  height: 56px;
+  overflow: hidden;
+}
+
+/* Стрелка сортировки занимает место всегда — заголовок не дёргается. */
+.sort-arrow {
+  display: inline-block;
+  width: 10px;
+  margin-left: 4px;
+  text-align: center;
+}
+
+.sort-arrow.is-idle {
+  opacity: 0;
+}
+
 @media (max-width: 768px) {
   .leaderboard-page { padding: 20px; }
 }

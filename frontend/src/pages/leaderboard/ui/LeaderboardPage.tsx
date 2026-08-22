@@ -83,9 +83,14 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
 
   const getPlace = (i: number) => i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`
 
+  // Стрелка рендерится всегда (невидимой у неактивных колонок) — иначе
+  // заголовок дёргается по ширине при смене колонки сортировки.
   const SortHeader = ({ label, k }: { label: string; k: SortKey }) => (
     <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium whitespace-nowrap cursor-pointer hover:text-foreground select-none" onClick={() => handleSort(k)}>
-      {label} {sortKey === k ? (sortDir === "desc" ? "↓" : "↑") : ""}
+      {label}
+      <span className={`sort-arrow ${sortKey === k ? "" : "is-idle"}`}>
+        {sortKey === k && sortDir === "asc" ? "↑" : "↓"}
+      </span>
     </th>
   )
 
@@ -134,10 +139,18 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
 
           <div className="leaderboard-card overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="leaderboard-table">
+                <colgroup>
+                  <col className="col-place" />
+                  <col className="col-user" />
+                  <col className="col-cycle" />
+                  <col className="col-days" />
+                  <col className="col-streak" />
+                  <col className="col-score" />
+                </colgroup>
                 <thead>
                   <tr className="border-b border-[#1e1e1e]">
-                    <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium w-14"></th>
+                    <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium"></th>
                     <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium">Участник</th>
                     <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium">Цикл</th>
                     <SortHeader label="Дней" k="total_days" />
@@ -160,14 +173,14 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
                     const cycle = calcCycle(user.created_at, user.completed_dates, user.rest_dates)
                     const isMe = currentUser?.username === user.username
                     return (
-                      <tr key={user.id} className={`border-b border-[#1a1a1a] hover:bg-white/[0.02] transition-colors ${isMe ? "bg-brand/5" : ""}`}>
+                      <tr key={user.id} className={`leaderboard-row border-b border-[#1a1a1a] hover:bg-white/[0.02] transition-colors ${isMe ? "bg-brand/5" : ""}`}>
                         <td className="px-4 py-2.5 text-lg font-bold">{getPlace(index)}</td>
                         <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-2.5">
+                          <div className="leaderboard-cell flex items-center gap-2.5">
                             <UserAvatar avatarUrl={user.avatar_url} username={user.username} size={36} />
                             <div className="min-w-0">
                               <p className="font-semibold text-foreground text-sm leading-tight truncate">{user.username}</p>
-                              <span className="text-[11px] px-2 py-0.5 rounded-full inline-block mt-0.5 leading-tight" style={{ background: rank.color + "22", color: rank.color }}>
+                              <span className="text-[11px] px-2 py-0.5 rounded-full inline-block mt-0.5 leading-tight max-w-full truncate" style={{ background: rank.color + "22", color: rank.color }}>
                                 {rank.icon} {rank.title}
                               </span>
                               {user.goal && <p className="text-xs text-muted-foreground mt-0.5 truncate">{user.goal}</p>}
@@ -175,7 +188,7 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
                           </div>
                         </td>
                         <td className="px-4 py-2.5">
-                          <div className="min-w-[152px]">
+                          <div className="leaderboard-cell flex flex-col justify-center">
                             <div className="flex items-baseline justify-between gap-2 mb-1">
                               <p className="text-xs font-semibold text-foreground whitespace-nowrap">
                                 День {cycle.dayInCycle} / {CYCLE_LENGTH}
