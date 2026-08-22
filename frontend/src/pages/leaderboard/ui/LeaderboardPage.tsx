@@ -35,7 +35,7 @@ type SortKey = "total_days" | "streak" | "discipline_score"
 // Значение-заглушка: Radix Select не разрешает пустую строку как value.
 const ALL_LOCATIONS = "__all__"
 
-function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
+function Leaderboard({ onBack }: LeaderboardProps) {
   const [users, setUsers] = useState<LeaderboardUser[]>([])
   const [locations, setLocations] = useState<string[]>([])
   const [location, setLocation] = useState<string>(ALL_LOCATIONS)
@@ -85,8 +85,8 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
 
   // Стрелка рендерится всегда (невидимой у неактивных колонок) — иначе
   // заголовок дёргается по ширине при смене колонки сортировки.
-  const SortHeader = ({ label, k }: { label: string; k: SortKey }) => (
-    <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium whitespace-nowrap cursor-pointer hover:text-foreground select-none" onClick={() => handleSort(k)}>
+  const SortHeader = ({ label, k, className = "" }: { label: string; k: SortKey; className?: string }) => (
+    <th className={`px-2 py-2.5 text-center text-xs text-muted-foreground font-medium whitespace-nowrap cursor-pointer hover:text-foreground select-none ${className}`} onClick={() => handleSort(k)}>
       {label}
       <span className={`sort-arrow ${sortKey === k ? "" : "is-idle"}`}>
         {sortKey === k && sortDir === "asc" ? "↑" : "↓"}
@@ -155,7 +155,7 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
                     <th className="px-4 py-2.5 text-left text-xs text-muted-foreground font-medium">Цикл</th>
                     <SortHeader label="Дней" k="total_days" />
                     <SortHeader label="Серия" k="streak" />
-                    <SortHeader label="Discipline Score" k="discipline_score" />
+                    <SortHeader label="Discipline Score" k="discipline_score" className="score-col" />
                   </tr>
                 </thead>
                 <tbody>
@@ -171,9 +171,8 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
                     const streak = calcStreak(user.completed_dates, user.rest_dates)
                     const score = scoreOf(user)
                     const cycle = calcCycle(user.created_at, user.completed_dates, user.rest_dates)
-                    const isMe = currentUser?.username === user.username
                     return (
-                      <tr key={user.id} className={`leaderboard-row border-b border-[#1a1a1a] hover:bg-white/[0.02] transition-colors ${isMe ? "bg-brand/5" : ""}`}>
+                      <tr key={user.id} className="leaderboard-row border-b border-[#1a1a1a] hover:bg-white/[0.02] transition-colors">
                         <td className="px-4 py-2.5 text-lg font-bold">{getPlace(index)}</td>
                         <td className="px-4 py-2.5">
                           <div className="leaderboard-cell flex items-center gap-2.5">
@@ -204,23 +203,21 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
                             </p>
                           </div>
                         </td>
-                        <td className="px-4 py-2.5">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-brand/10 text-brand">
+                        <td className="px-2 py-2.5 text-center">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-brand/10 text-brand tabular-nums">
                             <CheckCircle className="h-3 w-3" /> {user.total_days}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-400">
+                        <td className="px-2 py-2.5 text-center">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-400 tabular-nums">
                             <Flame className="h-3 w-3" /> {streak}
                           </span>
                         </td>
-                        <td className="px-4 py-2.5">
+                        <td className="px-2 py-2.5 text-center score-col">
                           <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold tabular-nums ${
-                              score >= 0 ? "bg-brand/10 text-brand" : "bg-red-500/10 text-red-400"
-                            }`}
+                            className={`score-badge tabular-nums ${score >= 0 ? "is-positive" : "is-negative"}`}
                           >
-                            <Target className="h-3 w-3" /> {score}
+                            <Target className="h-3.5 w-3.5" /> {score}
                           </span>
                         </td>
                       </tr>
