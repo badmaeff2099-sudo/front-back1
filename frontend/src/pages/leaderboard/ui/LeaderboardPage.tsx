@@ -35,7 +35,7 @@ type SortKey = "total_days" | "streak" | "discipline_score"
 // Значение-заглушка: Radix Select не разрешает пустую строку как value.
 const ALL_LOCATIONS = "__all__"
 
-function Leaderboard({ onBack }: LeaderboardProps) {
+function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
   const [users, setUsers] = useState<LeaderboardUser[]>([])
   const [locations, setLocations] = useState<string[]>([])
   const [location, setLocation] = useState<string>(ALL_LOCATIONS)
@@ -171,14 +171,20 @@ function Leaderboard({ onBack }: LeaderboardProps) {
                     const streak = calcStreak(user.completed_dates, user.rest_dates)
                     const score = scoreOf(user)
                     const cycle = calcCycle(user.created_at, user.completed_dates, user.rest_dates)
+                    // Сравниваем по id — username может совпасть у разных аккаунтов.
+                    const isMe = currentUser?.id === user.id
                     return (
-                      <tr key={user.id} className="leaderboard-row border-b border-[#1a1a1a] hover:bg-white/[0.02] transition-colors">
+                      <tr key={user.id} className={`leaderboard-row border-b border-[#1a1a1a] transition-colors ${isMe ? "is-me" : "hover:bg-white/[0.02]"}`}>
                         <td className="px-4 py-2.5 text-lg font-bold">{getPlace(index)}</td>
                         <td className="px-4 py-2.5">
                           <div className="leaderboard-cell flex items-center gap-2.5">
                             <UserAvatar avatarUrl={user.avatar_url} username={user.username} size={36} />
                             <div className="min-w-0">
-                              <p className="font-semibold text-foreground text-sm leading-tight truncate">{user.username}</p>
+                              {/* Бейдж вне усечения: длинный ник обрезается, «вы» остаётся виден */}
+                              <p className="flex items-center gap-1.5 font-semibold text-foreground text-sm leading-tight">
+                                <span className="truncate">{user.username}</span>
+                                {isMe && <span className="me-badge">вы</span>}
+                              </p>
                               <span className="text-[11px] px-2 py-0.5 rounded-full inline-block mt-0.5 leading-tight max-w-full truncate" style={{ background: rank.color + "22", color: rank.color }}>
                                 {rank.icon} {rank.title}
                               </span>
