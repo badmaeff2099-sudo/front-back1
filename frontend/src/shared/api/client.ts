@@ -124,6 +124,12 @@ export async function saveGoals500(userId: number, goals: { text: string; done: 
   })
 }
 
+export async function getTodayChallenge(userId: number) {
+  // Часовой пояс браузера — момент смены челленджа (12:00) считается по локальному времени
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+  return request(`/challenges/today.php?user_id=${userId}&tz=${encodeURIComponent(tz)}`)
+}
+
 export async function getPlanner(userId: number) {
   return request(`/planner/get.php?user_id=${userId}`)
 }

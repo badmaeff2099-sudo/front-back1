@@ -30,6 +30,7 @@ import { getRank } from "@/entities/rank/model/ranks";
 import { UserAvatar } from "@/entities/user/ui/UserAvatar";
 import { getUsers, getFriends, markDay } from "@/shared/api/client";
 import { FriendsPanel } from "@/features/friends/ui/FriendsPanel";
+import { ChallengeCard } from "@/features/daily-challenge/ui/ChallengeCard";
 import { calcStreak } from "@/shared/lib/streak";
 import { calcDiscipline } from "@/shared/lib/discipline";
 import type { User as UserType } from "@/entities/user/model/types";
@@ -810,11 +811,7 @@ export default function DashboardPage({
                   onShowFriends={onShowFriends}
                 />
 
-                <div className="profile-card challenge-card p-5 mt-4">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
-                    Челлендж дня
-                  </p>
-                </div>
+                <ChallengeCard currentUser={currentUser} />
               </div>
 
               {/* Right panel — horizontal scroll, columns */}

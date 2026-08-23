@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict vBeXAdanIhIDWqRnAB37yvpFkqhKXEvq3DlPyagphJglqNxY7j5yPUQx9ppmFhE
+\restrict 8oK7BK1h1LX08SB1UYot2D8XTT4z0lzwZpMxYG10zEmjCYk8uzIFLz9IEPcSJU0
 
 -- Dumped from database version 17.10 (Homebrew)
 -- Dumped by pg_dump version 17.10 (Homebrew)
@@ -36,6 +36,43 @@ COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: challenges; Type: TABLE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE TABLE public.challenges (
+    id integer NOT NULL,
+    title character varying(255) NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.challenges OWNER TO bairbadmaev;
+
+--
+-- Name: challenges_id_seq; Type: SEQUENCE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE SEQUENCE public.challenges_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.challenges_id_seq OWNER TO bairbadmaev;
+
+--
+-- Name: challenges_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: bairbadmaev
+--
+
+ALTER SEQUENCE public.challenges_id_seq OWNED BY public.challenges.id;
+
 
 --
 -- Name: chat_messages; Type: TABLE; Schema: public; Owner: bairbadmaev
@@ -395,6 +432,13 @@ ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
 --
+-- Name: challenges id; Type: DEFAULT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.challenges ALTER COLUMN id SET DEFAULT nextval('public.challenges_id_seq'::regclass);
+
+
+--
 -- Name: chat_messages id; Type: DEFAULT; Schema: public; Owner: bairbadmaev
 --
 
@@ -458,6 +502,105 @@ ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_
 
 
 --
+-- Data for Name: challenges; Type: TABLE DATA; Schema: public; Owner: bairbadmaev
+--
+
+COPY public.challenges (id, title, description, active, created_at) FROM stdin;
+2	3 часа без телефона	Не используй телефон в течение трёх часов.	t	2026-08-23 20:29:53.29223
+4	10 000 шагов	Пройди сегодня минимум 10 000 шагов.	t	2026-08-23 20:29:53.29223
+1	День без сладкого	Не ешь сегодня сладости, шоколад и десерты.	t	2026-08-23 20:29:53.29223
+3	30 минут чтения	Прочитай книгу минимум 30 минут.	t	2026-08-23 20:29:53.29223
+9	Холодный душ	Заверши обычный душ холодной водой.	t	2026-08-23 21:23:10.641673
+10	Убери рабочее место	Полностью наведи порядок на своём рабочем столе.	t	2026-08-23 21:23:10.641673
+54	Чистая комната	Перед сном оставь комнату убранной.	t	2026-08-23 21:23:10.641673
+11	Встань сразу	Сегодня не нажимай кнопку «Отложить» после будильника.	t	2026-08-23 21:23:10.641673
+12	20 отжиманий	Выполни 20 отжиманий за день.	t	2026-08-23 21:23:10.641673
+13	Без соцсетей	Проведи минимум 4 часа без социальных сетей.	t	2026-08-23 21:23:10.641673
+14	Утренний стакан воды	Выпей теплый стакан воды сразу после пробуждения.	t	2026-08-23 21:23:10.641673
+15	20 минут прогулки	Проведи минимум 20 минут на свежем воздухе.	t	2026-08-23 21:23:10.641673
+16	Заправь кровать	Сразу после пробуждения заправь свою кровать.	t	2026-08-23 21:23:10.641673
+17	Один час тишины	Проведи один час без музыки, видео и развлечений.	t	2026-08-23 21:23:10.641673
+18	Самая сложная задача	Выполни сегодня самую неприятную задачу первой.	t	2026-08-23 21:23:10.641673
+19	50 приседаний	Сделай 50 приседаний в течение дня.	t	2026-08-23 21:23:10.641673
+20	15 минут медитации	Проведи 15 минут в тишине, сосредоточившись на дыхании.	t	2026-08-23 21:23:10.641673
+21	Выключи уведомления	Отключи ненужные уведомления на весь день.	t	2026-08-23 21:23:10.641673
+22	1 час обучения	Потрать минимум час на изучение полезного навыка.	t	2026-08-23 21:23:10.641673
+23	Без лишних покупок	Сегодня не покупай ничего, кроме действительно необходимого.	t	2026-08-23 21:23:10.641673
+24	Разбери шкаф	Наведи порядок хотя бы в одном отделе шкафа.	t	2026-08-23 21:23:10.641673
+25	30 минут спорта	Посвяти минимум 30 минут физической активности.	t	2026-08-23 21:23:10.641673
+26	Не жалуйся	Проведи весь день без жалоб и нытья.	t	2026-08-23 21:23:10.641673
+27	10 минут планирования	Утром составь план своих главных задач на день.	t	2026-08-23 21:23:10.641673
+28	Закончи начатое	Заверши одну задачу, которую давно откладываешь.	t	2026-08-23 21:23:10.641673
+29	Без YouTube	Не открывай YouTube в течение всего дня.	t	2026-08-23 21:23:10.641673
+30	Без коротких видео	Не смотри TikTok, Reels или Shorts сегодня.	t	2026-08-23 21:23:10.641673
+31	20 минут уборки	Потрать 20 минут на уборку дома или комнаты.	t	2026-08-23 21:23:10.641673
+32	Ранний сон	Ляг спать минимум на 30 минут раньше обычного.	t	2026-08-23 21:23:10.641673
+33	10 минут растяжки	Выполни 10 минут лёгкой растяжки.	t	2026-08-23 21:23:10.641673
+34	5 новых иностранных слов	Выучи всего 5 иностранных слов и используй их в течении дня.	t	2026-08-23 21:23:10.641673
+35	Запиши 3 цели	Запиши три цели, которых хочешь достичь в ближайшее время.	t	2026-08-23 21:23:10.641673
+36	Без телефона за едой	Не используй телефон во время приёмов пищи сегодня.	t	2026-08-23 21:23:10.641673
+37	Чистая почта	Удали ненужные письма из электронной почты.	t	2026-08-23 21:23:10.641673
+38	Разбери файлы	Удали ненужные файлы и наведи порядок в одной папке.	t	2026-08-23 21:23:10.641673
+39	30 минут без экрана	Проведи 30 минут перед сном без телефона и компьютера.	t	2026-08-23 21:23:10.641673
+40	Сделай то, чего боишься	Выполни небольшое действие, которое давно откладываешь из-за страха.	t	2026-08-23 21:23:10.641673
+41	Позвони близкому	Позвони человеку, с которым давно не разговаривал.	t	2026-08-23 21:23:10.641673
+42	Поблагодари человека	Поблагодари человека за что-то.	t	2026-08-23 21:23:10.641673
+43	Сделай добро	Сделай одно бескорыстное доброе дело.	t	2026-08-23 21:23:10.641673
+44	Не опаздывай	Сегодня приходи на все встречи и дела вовремя.	t	2026-08-23 21:23:10.641673
+45	100 приседаний	Выполни 100 приседаний в течение дня.	t	2026-08-23 21:23:10.641673
+46	30 отжиманий	Выполни 30 отжиманий за день.	t	2026-08-23 21:23:10.641673
+47	План без отвлечений	Выполни одну задачу, не отвлекаясь на телефон.	t	2026-08-23 21:23:10.641673
+48	45 минут фокуса	Работай или учись 45 минут без отвлечений.	t	2026-08-23 21:23:10.641673
+49	Без телефона утром	Не бери телефон первые 30 минут после пробуждения.	t	2026-08-23 21:23:10.641673
+50	Утренняя прогулка	Выйди на прогулку в первой половине дня.	t	2026-08-23 21:23:10.641673
+51	Вечерняя прогулка	Соверши 20-минутную прогулку вечером.	t	2026-08-23 21:23:10.641673
+52	Без газировки	Не пей сегодня сладкие газированные напитки.	t	2026-08-23 21:23:10.641673
+53	Фрукты вместо сладкого	Если захочется сладкого, выбери вместо него фрукт.	t	2026-08-23 21:23:10.641673
+55	Разбери фотографии	Удали 30 ненужных фотографий с телефона.	t	2026-08-23 21:23:10.641673
+56	Освободи память телефона	Удали 3 ненужные приложения.	t	2026-08-23 21:23:10.641673
+57	Без наушников	Проведи хотя бы час без музыки, подкастов и видео.	t	2026-08-23 21:23:10.641673
+58	20 минут обучения	Узнай что-то новое по интересующей тебя теме.	t	2026-08-23 21:23:10.641673
+59	Запиши мысли	Вечером запиши несколько мыслей о прошедшем дне.	t	2026-08-23 21:23:10.641673
+60	Определи приоритет	Выбери одну главную задачу и обязательно выполни её.	t	2026-08-23 21:23:10.641673
+61	Не откладывай	Выполни небольшую задачу сразу, не откладывая её.	t	2026-08-23 21:23:10.641673
+62	Один час продуктивности	Проведи один час исключительно полезной деятельностью.	t	2026-08-23 21:23:10.641673
+63	Без многозадачности	Сегодня выполняй задачи только по одной.	t	2026-08-23 21:23:10.641673
+64	Наведи порядок в телефоне	Удали минимум 10 ненужных файлов или фотографий.	t	2026-08-23 21:23:10.641673
+65	Изучи 3 новых фактов	Узнай три новых факта по интересующей тебя теме.	t	2026-08-23 21:23:10.641673
+66	Напиши визуализацию	Напиши на пол страницы от руки твою жизнь через 6 месяцев.	t	2026-08-23 21:23:10.641673
+67	Прочитай статью	Прочитай одну полезную статью полностью.	t	2026-08-23 21:23:10.641673
+68	Образовательное видео	Посмотри одно образовательное видео вместо развлекательного контента.	t	2026-08-23 21:23:10.641673
+69	Без спешки	Сегодня сознательно выполняй привычные действия медленнее и внимательнее.	t	2026-08-23 21:23:10.641673
+70	Не спорь	Не вступай сегодня в бессмысленные споры.	t	2026-08-23 21:23:10.641673
+71	Слушай внимательно	В одном разговоре сегодня не перебивай собеседника.	t	2026-08-23 21:23:10.641673
+72	Сделай комплимент	Сделай искренний комплимент одному человеку.	t	2026-08-23 21:23:10.641673
+73	Помоги человеку	Предложи кому-нибудь помощь без просьбы с его стороны.	t	2026-08-23 21:23:10.641673
+74	День без негатива	Не смотри и не отправляй негативный контент.	t	2026-08-23 21:23:10.641673
+75	Проверь расходы	Запиши все свои расходы за сегодняшний день.	t	2026-08-23 21:23:10.641673
+76	Без импульсивных покупок	Не покупай ничего под влиянием сиюминутного желания.	t	2026-08-23 21:23:10.641673
+77	Отложи деньги	Отложи небольшую сумму денег в накопления.	t	2026-08-23 21:23:10.641673
+78	Составь бюджет	Запиши план своих расходов на ближайшую неделю.	t	2026-08-23 21:23:10.641673
+79	7 минут иностранного языка	Позанимайся иностранным языком минимум 7 минут.	t	2026-08-23 21:23:10.641673
+80	Без прокрастинации	Как только заметишь, что откладываешь задачу, сразу начни её выполнять.	t	2026-08-23 21:23:10.641673
+81	Сделай больше нормы	Выполни привычную задачу немного лучше или больше, чем обычно.	t	2026-08-23 21:23:10.641673
+82	60 минут без развлечений	Проведи один час без игр, сериалов и социальных сетей.	t	2026-08-23 21:23:10.641673
+83	Час без телефона перед сном	Не используй телефон за час до сна.	t	2026-08-23 21:23:10.641673
+84	Утро без соцсетей	Не открывай социальные сети в течение первого часа после пробуждения.	t	2026-08-23 21:23:10.641673
+85	Вечер без соцсетей	Не заходи в социальные сети после 20:00.	t	2026-08-23 21:23:10.641673
+86	Сделай то, что откладывал	Выбери одну давно отложенную задачу и наконец выполни её.	t	2026-08-23 21:23:10.641673
+87	5 минут порядка	Перед сном потрать 5 минут на наведение порядка.	t	2026-08-23 21:23:10.641673
+88	Новый маршрут	Пройдись сегодня новым маршрутом, которым раньше не ходил.	t	2026-08-23 21:23:10.641673
+89	Преврати жалобу в действие	Каждый раз, когда хочется пожаловаться, замени жалобу конкретным действием.	t	2026-08-23 21:23:10.641673
+90	20 минут творчества	Посвяти 20 минут рисованию, музыке, письму или другому творчеству.	t	2026-08-23 21:23:10.641673
+91	Узнай что-то о себе	Запиши одну свою сильную сторону и одну сторону, которую хочешь улучшить.	t	2026-08-23 21:23:10.641673
+92	Сначала дела, потом развлечения	Не начинай развлечения, пока не выполнишь главную задачу дня.	t	2026-08-23 21:23:10.641673
+93	Рабочий стол компьютера	Удали всё лишнее с рабочего стола компьютера и организуй файлы.	t	2026-08-23 21:23:10.641673
+94	Один час концентрации	Работай над одной задачей один час без переключения на другие дела.	t	2026-08-23 21:23:10.641673
+95	Шаг к большой цели	Выполни сегодня одно конкретное действие, которое приблизит тебя к важной цели.	t	2026-08-23 21:23:10.641673
+\.
+
+
+--
 -- Data for Name: chat_messages; Type: TABLE DATA; Schema: public; Owner: bairbadmaev
 --
 
@@ -473,11 +616,11 @@ COPY public.chat_messages (id, user_id, channel, message, created_at) FROM stdin
 
 COPY public.discipline_scores (id, user_id, completed_days, missed_days, score, calculated_at, rest_days) FROM stdin;
 8	9	4	93	3	2026-08-15 23:16:10.138464	1
-1	6	19	80	14	2026-08-16 00:50:44.517517	1
+1	6	22	84	19	2026-08-23 20:31:14.687235	2
+10	11	6	84	0	2026-08-11 15:55:35.540198	0
 6	7	11	83	0	2026-08-11 15:55:35.536425	0
 7	8	7	87	0	2026-08-11 15:55:35.537439	0
 9	10	2	87	0	2026-08-11 15:55:35.53932	1
-10	11	6	84	0	2026-08-11 15:55:35.540198	0
 11	12	2	87	0	2026-08-11 15:55:35.540991	1
 12	13	1	86	0	2026-08-11 15:55:35.541783	2
 13	14	0	88	0	2026-08-11 15:55:35.54257	1
@@ -512,6 +655,7 @@ COPY public.friendships (id, from_user_id, to_user_id, status, created_at) FROM 
 13	8	22	accepted	2026-06-16 11:46:07.643025
 14	22	11	pending	2026-06-16 11:48:11.315472
 15	9	6	accepted	2026-08-15 23:15:39.831494
+16	6	24	pending	2026-08-23 19:13:17.795974
 \.
 
 
@@ -546,7 +690,7 @@ COPY public.habits (id, user_id, title, total_days, created_at) FROM stdin;
 --
 
 COPY public.planner (user_id, last_date) FROM stdin;
-6	2026-08-11
+6	2026-08-22
 \.
 
 
@@ -555,11 +699,11 @@ COPY public.planner (user_id, last_date) FROM stdin;
 --
 
 COPY public.planner_items (id, user_id, day_type, "position", text) FROM stdin;
-56	6	today	0	
-57	6	today	1	
-58	6	today	2	
-59	6	today	3	
-60	6	today	4	
+71	6	today	0	
+72	6	today	1	
+73	6	today	2	
+74	6	today	3	
+75	6	today	4	
 \.
 
 
@@ -648,6 +792,10 @@ COPY public.progress (id, habit_id, day_date, completed, user_id, status) FROM s
 84	\N	2026-08-14	f	6	done
 85	\N	2026-08-15	f	6	done
 86	\N	2026-08-15	f	9	done
+87	\N	2026-08-16	f	6	rest
+88	\N	2026-08-21	f	6	done
+89	\N	2026-08-22	f	6	done
+90	\N	2026-08-23	f	6	done
 \.
 
 
@@ -680,9 +828,16 @@ COPY public.users (id, username, email, password, created_at, location, goal, fu
 24	Olga	olga@gmail.com	$2y$12$a62TpqofxcuW9TqMB8JTBOZ95Whev4bQpLo.vZgya/uY67NCQbIg.	2026-06-16	Москва	Спорт	\N	\N	\N	\N	\N
 25	Nina	nina@gmail.com	$2y$12$8coO3xv1OnbuyoFTlp.tC.xvo4j0ifZ7jlZS8EpiRf7sXeFk7lPhm	2026-06-16	Новосибирск		\N			\N	\N
 26	Alim	alim@gmail.com	$2y$12$CnFVQYIOrPOXXa2VoSPiS.D3mC/64sDR90TWg2Jtw7biGUTtTlqLS	2026-06-16	Улан-Удэ	Бег	\N	\N	\N	\N	\N
-6	Max	max@gmail.com	$2y$12$kEO.RBZM.Ikp959E4V5d2utjCyO5gGxsT6bBsWjzc/hHteaRyP7n.	2026-05-08	Улан-Батор	Английский				\N	m
 10	Boris	boris@gmail.com	$2y$12$7YatqQJiOC02THXESLGWu.o6wF.YD0/0h88E6Y4J3A7t7U9BgBIQq	2026-05-13	Улан-Удэ	Мед	\N	\N	\N	\N	\N
+6	Max 	max@gmail.com	$2y$12$kEO.RBZM.Ikp959E4V5d2utjCyO5gGxsT6bBsWjzc/hHteaRyP7n.	2026-05-08	Улан-Батор	Meditation				/uploads/avatars/6.png	madmax
 \.
+
+
+--
+-- Name: challenges_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
+--
+
+SELECT pg_catalog.setval('public.challenges_id_seq', 186, true);
 
 
 --
@@ -696,14 +851,14 @@ SELECT pg_catalog.setval('public.chat_messages_id_seq', 2, true);
 -- Name: discipline_scores_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.discipline_scores_id_seq', 520, true);
+SELECT pg_catalog.setval('public.discipline_scores_id_seq', 653, true);
 
 
 --
 -- Name: friendships_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.friendships_id_seq', 15, true);
+SELECT pg_catalog.setval('public.friendships_id_seq', 16, true);
 
 
 --
@@ -724,14 +879,14 @@ SELECT pg_catalog.setval('public.habits_id_seq', 1, true);
 -- Name: planner_items_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.planner_items_id_seq', 60, true);
+SELECT pg_catalog.setval('public.planner_items_id_seq', 75, true);
 
 
 --
 -- Name: progress_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.progress_id_seq', 86, true);
+SELECT pg_catalog.setval('public.progress_id_seq', 90, true);
 
 
 --
@@ -746,6 +901,14 @@ SELECT pg_catalog.setval('public.reactions_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('public.users_id_seq', 26, true);
+
+
+--
+-- Name: challenges challenges_pkey; Type: CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.challenges
+    ADD CONSTRAINT challenges_pkey PRIMARY KEY (id);
 
 
 --
@@ -858,6 +1021,20 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: challenges_active_idx; Type: INDEX; Schema: public; Owner: bairbadmaev
+--
+
+CREATE INDEX challenges_active_idx ON public.challenges USING btree (active);
+
+
+--
+-- Name: challenges_title_key; Type: INDEX; Schema: public; Owner: bairbadmaev
+--
+
+CREATE UNIQUE INDEX challenges_title_key ON public.challenges USING btree (title);
 
 
 --
@@ -1000,5 +1177,5 @@ ALTER TABLE ONLY public.reactions
 -- PostgreSQL database dump complete
 --
 
-\unrestrict vBeXAdanIhIDWqRnAB37yvpFkqhKXEvq3DlPyagphJglqNxY7j5yPUQx9ppmFhE
+\unrestrict 8oK7BK1h1LX08SB1UYot2D8XTT4z0lzwZpMxYG10zEmjCYk8uzIFLz9IEPcSJU0
 
