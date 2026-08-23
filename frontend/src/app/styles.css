@@ -28,11 +28,13 @@
   height: 60px;
 }
 
-.app-header .header-title {
-  margin: 0 !important;
-  color: #f0f0f0 !important;
-  font-weight: 700;
-  letter-spacing: -0.5px;
+.app-header .header-logo {
+  display: block;
+  height: 36px;
+  width: auto;
+  flex-shrink: 0;
+  object-fit: contain;
+  user-select: none;
 }
 
 .app-header .header-link {
@@ -202,6 +204,8 @@
 @media (max-width: 768px) {
   .app-header   { padding: 0 16px; height: 52px; }
   .app-content  { padding: 16px; }
+
+  .app-header .header-logo { height: 30px; }
 
   .progress-grid { gap: 10px; }
 

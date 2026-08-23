@@ -614,7 +614,13 @@ export default function DashboardPage({
         {/* Header */}
         <header className="app-header">
           <div className="flex items-center justify-between w-full gap-5">
-            <h1 className="header-title text-xl font-bold">Chainify</h1>
+            <img
+              src="/logo.png"
+              alt="Chainify"
+              width={207}
+              height={108}
+              className="header-logo"
+            />
             <div className="flex-1 hidden md:flex items-center justify-center gap-3">
               <span className="text-sm text-muted-foreground font-medium">
                 Каждый день — новая возможность
