@@ -809,6 +809,12 @@ export default function DashboardPage({
                   onSelectUser={onSelectUser}
                   onShowFriends={onShowFriends}
                 />
+
+                <div className="profile-card challenge-card p-5 mt-4">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider">
+                    Челлендж дня
+                  </p>
+                </div>
               </div>
 
               {/* Right panel — horizontal scroll, columns */}
