@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from "react"
-import { ArrowLeft, Target, BarChart2, CalendarDays, ListChecks, Plus, Trash2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react"
+import { ArrowLeft, Target, BarChart2, CalendarDays, ListChecks, CalendarRange, Plus, Trash2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import type { User as UserType } from "@/entities/user/model/types"
-import { getGoals500, saveGoals500, getPlanner, savePlanner, getProgressYear } from "@/shared/api/client"
+import { getGoals500, saveGoals500, getPlanner, savePlanner, getProgressYear, getYearGoals, saveYearGoal } from "@/shared/api/client"
 
 /* ─── Planner types & helpers ───────────────────────────────── */
 interface NoteItem { id: number; text: string }
@@ -24,7 +24,7 @@ interface CabinetPageProps {
   onBack: () => void
 }
 
-type Section = "goal" | "stats" | "planner" | "goals500"
+type Section = "goal" | "stats" | "planner" | "goals500" | "yeargoals"
 
 interface PlanRow {
   id: number
@@ -38,6 +38,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
   { id: "stats",   label: "Моя статистика",  icon: <BarChart2 className="h-4 w-4" /> },
   { id: "planner", label: "Мой планнер",     icon: <CalendarDays className="h-4 w-4" /> },
   { id: "goals500",label: "Мои 500 целей",   icon: <ListChecks className="h-4 w-4" /> },
+  { id: "yeargoals",label: "Мои цели на год", icon: <CalendarRange className="h-4 w-4" /> },
 ]
 
 function makeRow(id: number): PlanRow {
@@ -654,6 +655,449 @@ function Goals500Section({ currentUser }: { currentUser: UserType }) {
   )
 }
 
+/* ─── Year goals section: 12 карточек месяцев ───────────────── */
+const MONTH_NAMES = [
+  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+]
+
+/** Сколько линеек подцелей всегда видно в карточке */
+const BASE_SUBGOALS = 5
+/** Предел на карточку — чтобы сетка из 12 карточек не расползалась */
+const MAX_SUBGOALS = 20
+
+// Границы совпадают с валидацией в backend/api/yeargoals/*.php: иначе
+// переключатель мог бы запросить год, который API отклоняет.
+const YEAR_GOALS_MIN = 2000
+const YEAR_GOALS_MAX = 2100
+
+/** Карточка одного месяца */
+interface MonthGoal {
+  goal: string
+  /** Текст подцелей по порядку; позиция в массиве = position в БД */
+  subgoals: string[]
+}
+
+/** Дотягивает список подцелей до BASE_SUBGOALS пустыми линейками */
+function padSubgoals(subgoals: string[]): string[] {
+  const out = [...subgoals]
+  while (out.length < BASE_SUBGOALS) out.push("")
+  return out
+}
+
+function emptyYear(): MonthGoal[] {
+  return Array.from({ length: 12 }, () => ({ goal: "", subgoals: padSubgoals([]) }))
+}
+
+/**
+ * Ответ сервера → ровно 12 карточек.
+ * Бэкенд отдаёт все 12 месяцев, но полагаться на это не стоит: битый или
+ * частичный ответ не должен схлопывать сетку до пары карточек.
+ */
+function normalizeYear(months: unknown): MonthGoal[] {
+  const cards = emptyYear()
+  if (!Array.isArray(months)) return cards
+
+  for (const raw of months) {
+    const m = Number((raw as { month?: unknown })?.month)
+    if (!Number.isInteger(m) || m < 1 || m > 12) continue
+
+    const subgoals = (raw as { subgoals?: unknown }).subgoals
+    cards[m - 1] = {
+      goal: String((raw as { goal?: unknown }).goal ?? ""),
+      subgoals: padSubgoals(
+        Array.isArray(subgoals)
+          ? subgoals.slice(0, MAX_SUBGOALS).map((s) => String(s ?? ""))
+          : [],
+      ),
+    }
+  }
+
+  return cards
+}
+
+interface AutoGrowTextareaProps {
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  readOnly?: boolean
+  className?: string
+  "aria-label"?: string
+}
+
+/**
+ * Поле в одну строку, которое переносит текст вниз, когда он не влезает.
+ *
+ * Это textarea, а не input: input не умеет переносить строки в принципе,
+ * длинная запись в нём уезжает за границу и её не видно целиком.
+ * Высота подгоняется под содержимое, поэтому полосы прокрутки нет.
+ */
+function AutoGrowTextarea({
+  value,
+  onChange,
+  placeholder,
+  readOnly = false,
+  className = "",
+  "aria-label": ariaLabel,
+}: AutoGrowTextareaProps) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  // Пересчёт по value, а не в onChange: высота нужна верной и при внешней
+  // смене текста — загрузке года, переключении пользователя, удалении строки.
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    // Сброс перед замером: иначе scrollHeight никогда не уменьшится
+    // и поле не сожмётся обратно после удаления текста.
+    el.style.height = "auto"
+    el.style.height = `${el.scrollHeight}px`
+  }, [value])
+
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      readOnly={readOnly}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      // resize-none + overflow-hidden: высотой управляет эффект выше,
+      // ручной ресайз и прокрутка внутри поля были бы лишними.
+      className={`block w-full resize-none overflow-hidden break-words bg-transparent focus:outline-none transition-colors ${className}`}
+    />
+  )
+}
+
+interface MonthGoalCardProps {
+  name: string
+  card: MonthGoal
+  readOnly?: boolean
+  onChange: (card: MonthGoal) => void
+}
+
+function MonthGoalCard({ name, card, readOnly = false, onChange }: MonthGoalCardProps) {
+  const setSubgoal = (index: number, text: string) => {
+    onChange({
+      ...card,
+      subgoals: card.subgoals.map((s, i) => (i === index ? text : s)),
+    })
+  }
+
+  const addSubgoal = () => {
+    if (card.subgoals.length >= MAX_SUBGOALS) return
+    onChange({ ...card, subgoals: [...card.subgoals, ""] })
+  }
+
+  // Удалять можно только добавленные сверх базовых линеек — иначе карточка
+  // потеряла бы обещанные 5 строк.
+  const removeSubgoal = (index: number) => {
+    if (card.subgoals.length <= BASE_SUBGOALS) return
+    onChange({ ...card, subgoals: card.subgoals.filter((_, i) => i !== index) })
+  }
+
+  const filled = card.subgoals.filter((s) => s.trim() !== "").length
+
+  return (
+    <div className="flex flex-col bg-[#111] border border-[#1e1e1e] rounded-xl overflow-hidden">
+      {/* Название месяца */}
+      <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-[#151515] border-b border-[#1e1e1e]">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-brand select-none">
+          {name}
+        </p>
+        {filled > 0 && (
+          <span className="text-[10px] text-muted-foreground/40 tabular-nums select-none">
+            {filled}
+          </span>
+        )}
+      </div>
+
+      {/* Главная цель месяца */}
+      <div className="px-4 pt-3 pb-3 border-b border-[#1a1a1a]">
+        <p className="text-[9px] uppercase tracking-wider text-muted-foreground/50 mb-1 select-none">
+          Главная цель
+        </p>
+        <AutoGrowTextarea
+          value={card.goal}
+          onChange={(text) => onChange({ ...card, goal: text })}
+          placeholder={readOnly ? "" : "Главная цель месяца..."}
+          readOnly={readOnly}
+          aria-label={`Главная цель на ${name}`}
+          className={`text-sm font-semibold leading-snug px-2 py-1 -mx-2 rounded
+            placeholder:text-muted-foreground/25 placeholder:font-normal
+            ${readOnly
+              ? "text-foreground/70 cursor-default"
+              : "text-foreground hover:bg-[#181818] focus:bg-[#1a1a1a]"
+            }`}
+        />
+      </div>
+
+      {/* Подцели */}
+      <div className="flex flex-col flex-1 px-4 pt-2.5 pb-1">
+        <p className="text-[9px] uppercase tracking-wider text-muted-foreground/50 mb-0.5 select-none">
+          Подцели
+        </p>
+        {/* Ключ по индексу: подцели — упорядоченный список строк, при удалении
+            значения сдвигаются, и это именно то поведение, которое нужно. */}
+        {card.subgoals.map((text, i) => (
+          <div
+            key={i}
+            // items-start, а не center: запись может занять несколько строк,
+            // номер и корзина должны остаться у её первой строки.
+            className="group flex items-start gap-2 py-1 border-b border-[#191919] last:border-0"
+          >
+            <span className="w-3 shrink-0 pt-[3px] text-right text-[10px] text-muted-foreground/30 tabular-nums select-none">
+              {i + 1}
+            </span>
+            <div className="flex-1 min-w-0">
+              <AutoGrowTextarea
+                value={text}
+                onChange={(next) => setSubgoal(i, next)}
+                placeholder={readOnly ? "" : "Подцель..."}
+                readOnly={readOnly}
+                aria-label={`Подцель ${i + 1} на ${name}`}
+                className={`text-[13px] leading-snug px-1.5 py-0.5 rounded
+                  placeholder:text-muted-foreground/20
+                  ${readOnly
+                    ? "text-foreground/60 cursor-default"
+                    : "text-foreground/90 hover:bg-[#181818] focus:bg-[#1a1a1a]"
+                  }`}
+              />
+            </div>
+            {!readOnly && i >= BASE_SUBGOALS && (
+              <button
+                onClick={() => removeSubgoal(i)}
+                aria-label={`Удалить подцель ${i + 1}`}
+                className="shrink-0 w-5 h-5 flex items-center justify-center rounded
+                  opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity
+                  text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/10"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Добавить подцель */}
+      {!readOnly && (
+        <div className="border-t border-[#1a1a1a] mt-1">
+          {card.subgoals.length < MAX_SUBGOALS ? (
+            <button
+              onClick={addSubgoal}
+              aria-label={`Добавить подцель в ${name}`}
+              className="w-full flex items-center justify-center gap-1.5 py-2
+                text-[11px] text-muted-foreground hover:text-foreground
+                hover:bg-[#161616] transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Добавить подцель
+            </button>
+          ) : (
+            <p className="text-center py-2 text-[10px] text-muted-foreground/40 select-none">
+              Максимум {MAX_SUBGOALS} подцелей
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Что сервер сообщил про выбранный год */
+interface YearMeta {
+  /** Можно ли вносить данные — текущий год и дальше */
+  editable: boolean
+  /** Нижняя граница переключателя: самый ранний год с данными */
+  minYear: number
+}
+
+function YearGoalsSection({ currentUser }: { currentUser: UserType }) {
+  const [year, setYear] = useState(() => new Date().getFullYear())
+  const [cards, setCards] = useState<MonthGoal[]>(emptyYear)
+  const [meta, setMeta] = useState<YearMeta | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  /* Отложенные сохранения. Ключ — "год-месяц": если пользователь переключил
+     год, не дождавшись сохранения, правка всё равно уйдёт в свой год. */
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>())
+  const pending = useRef(new Map<string, () => void>())
+
+  /** Досылает все отложенные сохранения немедленно */
+  const flushPending = useCallback(() => {
+    timers.current.forEach((t) => clearTimeout(t))
+    timers.current.clear()
+    const runs = [...pending.current.values()]
+    pending.current.clear()
+    runs.forEach((run) => run())
+  }, [])
+
+  /* Уход из раздела не должен съедать последние набранные символы,
+     поэтому на размонтировании сохраняем, а не просто гасим таймеры. */
+  useEffect(() => flushPending, [flushPending])
+
+  /* Загрузка года */
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    getYearGoals(currentUser.id, year)
+      .then((res) => {
+        if (cancelled) return
+        if (res?.success) {
+          setCards(normalizeYear(res.months))
+          // Права и границы берём с сервера: у него и время верное,
+          // и он же отклонит запись — расхождения быть не может.
+          setMeta({
+            editable: res.editable === true,
+            minYear: Number.isInteger(res.min_year) ? res.min_year : year,
+          })
+        } else {
+          setError(res?.message ?? "Не удалось загрузить цели на год")
+          setCards(emptyYear())
+          setMeta(null)
+        }
+      })
+      .catch(() => {
+        if (cancelled) return
+        setError("Не удалось загрузить цели на год")
+        setCards(emptyYear())
+        setMeta(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser.id, year])
+
+  // Пока год не загрузился, ориентируемся на часы браузера — иначе при
+  // недоступном API текущий год оказался бы заперт. Записать прошлое всё
+  // равно не выйдет: save.php проверяет год независимо.
+  const editable = meta ? meta.editable : year >= new Date().getFullYear()
+  // YEAR_GOALS_MIN как страховка: переключатель не должен уводить за
+  // диапазон, который принимает API, даже если в БД окажется странный год.
+  const minYear = Math.max(YEAR_GOALS_MIN, meta ? meta.minYear : year)
+
+  /* Правка карточки: сразу в состояние, в БД — с дебаунсом */
+  const updateCard = (index: number, card: MonthGoal) => {
+    // Прошлый год только для чтения. Поля и так заблокированы, но
+    // проверка здесь не даёт правке уйти в БД ни при каком раскладе.
+    if (!editable) return
+
+    setCards((prev) => prev.map((c, i) => (i === index ? card : c)))
+
+    const month = index + 1
+    const key = `${year}-${month}`
+    const savedYear = year
+
+    const run = () =>
+      saveYearGoal(currentUser.id, savedYear, month, card.goal, card.subgoals).catch(() => {})
+
+    const prevTimer = timers.current.get(key)
+    if (prevTimer) clearTimeout(prevTimer)
+    pending.current.set(key, run)
+    timers.current.set(
+      key,
+      setTimeout(() => {
+        timers.current.delete(key)
+        pending.current.delete(key)
+        run()
+      }, 500),
+    )
+  }
+
+  /* Смена года: сначала досылаем правки, иначе загрузка нового года
+     перезаписала бы состояние раньше, чем они успели уйти в БД. */
+  const shiftYear = (delta: number) => {
+    // Назад — не дальше самого раннего года с данными: пустые прошлые годы
+    // листать незачем, вносить в них ничего нельзя.
+    const next = Math.min(YEAR_GOALS_MAX, Math.max(minYear, year + delta))
+    if (next === year) return
+    flushPending()
+    setYear(next)
+  }
+
+  const filledMonths = cards.filter(
+    (c) => c.goal.trim() !== "" || c.subgoals.some((s) => s.trim() !== ""),
+  ).length
+
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Заголовок + переключатель года справа вверху */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Мои цели на год</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {editable
+              ? "Главная цель на каждый месяц и подцели к ней. Изменения сохраняются автоматически. "
+              : "Прошедший год — только просмотр. "}
+            Заполнено месяцев:{" "}
+            <span className="text-foreground font-medium tabular-nums">
+              {filledMonths}
+            </span>{" "}
+            / 12
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          {!editable && (
+            <span className="mr-1.5 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wider text-muted-foreground/70 bg-[#1a1a1a] border border-[#252525] select-none whitespace-nowrap">
+              только просмотр
+            </span>
+          )}
+          <button
+            onClick={() => shiftYear(-1)}
+            disabled={year <= minYear}
+            aria-label="Предыдущий год"
+            className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-[#1e1e1e] transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="text-sm font-medium text-foreground tabular-nums w-12 text-center select-none">
+            {year}
+          </span>
+          <button
+            onClick={() => shiftYear(1)}
+            disabled={year >= YEAR_GOALS_MAX}
+            aria-label="Следующий год"
+            className="w-7 h-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-[#1e1e1e] transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <p className="text-xs text-red-400/80 bg-red-500/5 border border-red-500/20 rounded-lg px-4 py-2.5">
+          {error}
+        </p>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center py-24 text-sm text-muted-foreground">
+          Загрузка целей на {year} год...
+        </div>
+      ) : (
+        /* 3 карточки в ряд → 4 ряда по кварталам, как в макете */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {cards.map((card, i) => (
+            <MonthGoalCard
+              key={i}
+              name={MONTH_NAMES[i]}
+              card={card}
+              readOnly={!editable}
+              onChange={(next) => updateCard(i, next)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ─── Stats section: годовая сетка стрика ───────────────────── */
 type DayStatus = "done" | "rest" | "missed" | "empty"
 
@@ -1112,7 +1556,13 @@ export default function CabinetPage({ currentUser, onBack }: CabinetPageProps) {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] p-6">
-      <div className="max-w-5xl mx-auto">
+      {/*
+        Раздел "Мои цели на год" шире остальных: при max-w-5xl на карточку
+        месяца приходится ~253px, при 1138px — ~292px, то есть +15%.
+        Расширение привязано к активному разделу, чтобы вид остальных
+        разделов кабинета не поехал.
+      */}
+      <div className={`mx-auto ${active === "yeargoals" ? "max-w-[1138px]" : "max-w-5xl"}`}>
         <button
           onClick={onBack}
           className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
@@ -1149,6 +1599,7 @@ export default function CabinetPage({ currentUser, onBack }: CabinetPageProps) {
             {active === "stats"    && <StatsSection currentUser={currentUser} />}
             {active === "planner"  && <PlannerSection currentUser={currentUser} />}
             {active === "goals500" && <Goals500Section currentUser={currentUser} />}
+            {active === "yeargoals" && <YearGoalsSection currentUser={currentUser} />}
           </div>
         </div>
       </div>

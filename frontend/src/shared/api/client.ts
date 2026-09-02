@@ -124,6 +124,24 @@ export async function saveGoals500(userId: number, goals: { text: string; done: 
   })
 }
 
+export async function getYearGoals(userId: number, year: number) {
+  return request(`/yeargoals/list.php?user_id=${userId}&year=${year}`)
+}
+
+/** Сохраняет одну карточку месяца: правки разных месяцев не перетирают друг друга */
+export async function saveYearGoal(
+  userId: number,
+  year: number,
+  month: number,
+  goal: string,
+  subgoals: string[],
+) {
+  return request('/yeargoals/save.php', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, year, month, goal, subgoals }),
+  })
+}
+
 export async function getTodayChallenge(userId: number) {
   // Часовой пояс браузера — момент смены челленджа (12:00) считается по локальному времени
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
