@@ -50,8 +50,16 @@ export interface CycleInfo {
   markedInCycle: number
   /** Выполнено (done) внутри текущего цикла */
   doneInCycle: number
+  /** Выходных (rest) внутри текущего цикла */
+  restInCycle: number
+  /** Пропущено внутри цикла: прошедшие дни без отметки (сегодня не считается) */
+  missedInCycle: number
   /** Первый день текущего цикла, "YYYY-MM-DD" */
   cycleStart: string
+  /** Последний день текущего цикла, "YYYY-MM-DD" */
+  cycleEnd: string
+  /** Сегодня в виде "YYYY-MM-DD" — та точка отсчёта, по которой посчитан цикл */
+  today: string
 }
 
 /**
@@ -60,14 +68,16 @@ export interface CycleInfo {
  * @param registeredAt   — дата регистрации ("YYYY-MM-DD" или ISO-таймстамп)
  * @param completedDates — массив дат со статусом "done"
  * @param restDates      — массив дат со статусом "rest"
+ * @param today          — «сегодня» в формате "YYYY-MM-DD". Передаётся, чтобы
+ *                         компонент мог пересчитать цикл при смене суток
+ *                         (см. useToday); по умолчанию — системная дата.
  */
 export function calcCycle(
   registeredAt?: string,
   completedDates: string[] = [],
   restDates: string[] = [],
+  today: string = todayISO(),
 ): CycleInfo {
-  const today = todayISO()
-
   // Нет даты регистрации — считаем, что участник стартовал сегодня.
   const start = registeredAt ? registeredAt.slice(0, 10) : today
 
@@ -84,15 +94,75 @@ export function calcCycle(
   )
 
   const inCycle = (d: string) => d >= cycleStart && d <= cycleEnd
-  const doneInCycle = completedDates.filter(inCycle).length
-  const restInCycle = restDates.filter(inCycle).length
+  const doneSet = new Set(completedDates.map((d) => d.slice(0, 10)).filter(inCycle))
+  const restSet = new Set(restDates.map((d) => d.slice(0, 10)).filter(inCycle))
+
+  // Пропуск — прошедший день цикла без отметки. Сегодня ещё можно отметить,
+  // поэтому текущий день пропуском не считаем.
+  let missedInCycle = 0
+  for (let i = 0; i < dayInCycle - 1; i++) {
+    const d = addDays(cycleStart, i)
+    if (!doneSet.has(d) && !restSet.has(d)) missedInCycle++
+  }
 
   return {
     cycleNumber: cycleIndex + 1,
     dayInCycle,
     daysLeft: CYCLE_LENGTH - dayInCycle,
-    markedInCycle: doneInCycle + restInCycle,
-    doneInCycle,
+    markedInCycle: doneSet.size + restSet.size,
+    doneInCycle: doneSet.size,
+    restInCycle: restSet.size,
+    missedInCycle,
     cycleStart,
+    cycleEnd,
+    today,
   }
+}
+
+/** Состояние одной ячейки истории активности */
+export type CycleSlotState = "done" | "rest" | "missed" | "today" | "future"
+
+export interface CycleSlot {
+  /** Номер дня внутри цикла, 1..30 */
+  dayNumber: number
+  /** Дата ячейки, "YYYY-MM-DD" */
+  date: string
+  state: CycleSlotState
+}
+
+/**
+ * 30 ячеек текущего цикла — от первого дня цикла к последнему.
+ *
+ * Та же семантика состояний, что у столбцов на дашборде (buildSlots):
+ * - done   — день отмечен как выполненный
+ * - rest   — день отмечен как выходной
+ * - today  — сегодня, отметки пока нет
+ * - future — день ещё не наступил
+ * - missed — прошедший день без отметки
+ */
+export function buildCycleSlots(
+  registeredAt?: string,
+  completedDates: string[] = [],
+  restDates: string[] = [],
+  today: string = todayISO(),
+): CycleSlot[] {
+  const { cycleStart } = calcCycle(registeredAt, completedDates, restDates, today)
+  const doneSet = new Set(completedDates.map((d) => d.slice(0, 10)))
+  const restSet = new Set(restDates.map((d) => d.slice(0, 10)))
+
+  const slots: CycleSlot[] = []
+  for (let i = 0; i < CYCLE_LENGTH; i++) {
+    const date = addDays(cycleStart, i)
+
+    let state: CycleSlotState
+    if (doneSet.has(date)) state = "done"
+    else if (restSet.has(date)) state = "rest"
+    else if (date === today) state = "today"
+    else if (date > today) state = "future"
+    else state = "missed"
+
+    slots.push({ dayNumber: i + 1, date, state })
+  }
+
+  return slots
 }

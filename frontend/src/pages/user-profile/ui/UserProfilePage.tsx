@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Trophy, MapPin, Calendar, Flame, Target, Moon } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
@@ -9,9 +10,47 @@ import { UserAvatar } from "@/entities/user/ui/UserAvatar";
 import { FriendButton } from "@/features/friends/ui/FriendButton";
 import { calcStreak, calcLongestStreak } from "@/shared/lib/streak";
 import { calcDiscipline } from "@/shared/lib/discipline";
+import {
+  calcCycle,
+  buildCycleSlots,
+  CYCLE_LENGTH,
+  type CycleSlotState,
+} from "@/shared/lib/cycle";
+import { useToday } from "@/shared/lib/useToday";
+import { getProgress } from "@/shared/api/client";
 import type { User as UserType } from "@/entities/user/model/types";
 
-const DAYS_TO_SHOW = 30;
+/** Оформление ячейки истории активности по состоянию дня цикла */
+const SLOT_STYLE: Record<
+  CycleSlotState,
+  { color: string; label: string; legend: string }
+> = {
+  done: { color: "#22c55e", label: "Выполнено", legend: "Выполнено" },
+  rest: { color: "#eab308", label: "Выходной", legend: "Выходной" },
+  missed: { color: "#ef4444", label: "Пропущено", legend: "Пропущено" },
+  today: {
+    color: "#2a2a2a",
+    label: "Сегодня — ещё не отмечено",
+    legend: "Сегодня",
+  },
+  future: { color: "#1e1e1e", label: "Ещё не наступил", legend: "Впереди" },
+};
+
+/** "2025-09-02" → "2 сент." */
+function formatShort(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("ru-RU", {
+    day: "numeric",
+    month: "short",
+  });
+}
+
+/** Уникальные даты в формате "YYYY-MM-DD", по возрастанию */
+function normalizeDates(dates?: string[]): string[] {
+  return Array.from(
+    new Set((dates || []).filter(Boolean).map((d) => d.slice(0, 10))),
+  ).sort();
+}
 
 interface UserProfileProps {
   user: UserType;
@@ -24,50 +63,61 @@ export default function UserProfile({
   currentUser,
   onBack,
 }: UserProfileProps) {
-  const completedDates = Array.from(
-    new Set(
-      (user?.completed_dates || []).filter(Boolean).map((d) => {
-        const x = new Date(d);
-        x.setHours(0, 0, 0, 0);
-        return x.toLocaleDateString("sv-SE");
-      }),
-    ),
-  ).sort();
+  // Сегодня как реактивное значение: в момент окончания цикла страница
+  // сама пересчитает окно и покажет новый цикл без перезагрузки.
+  const today = useToday();
 
-  const restDates = Array.from(
-    new Set(
-      (user?.rest_dates || []).filter(Boolean).map((d) => {
-        const x = new Date(d);
-        x.setHours(0, 0, 0, 0);
-        return x.toLocaleDateString("sv-SE");
-      }),
-    ),
-  ).sort();
+  // Прогресс приходит из списка участников и может быть устаревшим
+  // (список грузится один раз). Для актуального цикла тянем прогресс
+  // просматриваемого пользователя с сервера — и заново при смене суток.
+  const [progress, setProgress] = useState<{
+    completed_dates: string[];
+    rest_dates: string[];
+  } | null>(null);
 
-  const todayDate = new Date();
-  todayDate.setHours(0, 0, 0, 0);
-  const today = todayDate.toLocaleDateString("sv-SE");
-  const createdAt = user.created_at
-    ? new Date(user.created_at + "T00:00:00")
-    : new Date();
-  createdAt.setHours(0, 0, 0, 0);
+  useEffect(() => {
+    let cancelled = false;
+    setProgress(null);
+    getProgress(user.id)
+      .then((res) => {
+        if (cancelled || !res.success) return;
+        setProgress({
+          completed_dates: res.completed_dates ?? [],
+          rest_dates: res.rest_dates ?? [],
+        });
+      })
+      .catch(() => {
+        // Сеть недоступна — остаёмся на данных из пропсов.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user.id, today]);
+
+  const completedDates = useMemo(
+    () => normalizeDates(progress?.completed_dates ?? user.completed_dates),
+    [progress, user.completed_dates],
+  );
+  const restDates = useMemo(
+    () => normalizeDates(progress?.rest_dates ?? user.rest_dates),
+    [progress, user.rest_dates],
+  );
 
   const completedDays = completedDates.length;
-  const todayCompleted = completedDates.includes(today);
-  const passedDays = Math.floor(
-    (todayDate.getTime() - createdAt.getTime()) / 86400000,
-  );
-  const missedDays = Math.max(
-    0,
-    passedDays - completedDays + (todayCompleted ? 1 : 0),
-  );
 
-  // Discipline Score — отдельный показатель, на missedDays и цикл не влияет
+  // Discipline Score — отдельный показатель, на цикл не влияет
   const discipline = calcDiscipline(completedDates, restDates, user.created_at);
-  const totalCycleDays = completedDays + missedDays;
-  const currentCycleDays =
-    totalCycleDays === 0 ? 0 : totalCycleDays % DAYS_TO_SHOW || DAYS_TO_SHOW;
-  const progressPercent = (currentCycleDays / DAYS_TO_SHOW) * 100;
+
+  // Единая логика цикла — та же, что на дашборде и в рейтинге
+  const cycle = useMemo(
+    () => calcCycle(user.created_at, completedDates, restDates, today),
+    [user.created_at, completedDates, restDates, today],
+  );
+  const slots = useMemo(
+    () => buildCycleSlots(user.created_at, completedDates, restDates, today),
+    [user.created_at, completedDates, restDates, today],
+  );
+  const progressPercent = (cycle.dayInCycle / CYCLE_LENGTH) * 100;
 
   const currentStreak = calcStreak(completedDates, restDates);
   const longestStreak = calcLongestStreak(completedDates, restDates);
@@ -238,11 +288,19 @@ export default function UserProfile({
 
             {/* Cycle progress */}
             <div className="bg-[#111] border border-[#1e1e1e] rounded-lg p-5">
-              <h4 className="font-semibold text-foreground mb-1">
-                Прогресс текущего цикла
-              </h4>
+              <div className="flex justify-between items-start gap-3 mb-1">
+                <h4 className="font-semibold text-foreground">
+                  Прогресс текущего цикла
+                </h4>
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-brand/15 text-brand whitespace-nowrap">
+                  Цикл {cycle.cycleNumber}
+                </span>
+              </div>
               <p className="text-xs text-muted-foreground mb-3">
-                Учитываются выполненные и пропущенные дни
+                {formatShort(cycle.cycleStart)} — {formatShort(cycle.cycleEnd)}
+                {cycle.daysLeft > 0
+                  ? ` · до конца цикла ${cycle.daysLeft} дн.`
+                  : " · последний день цикла"}
               </p>
               <Progress
                 value={Math.round(progressPercent)}
@@ -250,7 +308,7 @@ export default function UserProfile({
               />
               <div className="flex justify-between text-xs">
                 <span className="font-semibold text-foreground">
-                  {currentCycleDays} / {DAYS_TO_SHOW} дней
+                  День {cycle.dayInCycle} / {CYCLE_LENGTH}
                 </span>
                 <span className="text-muted-foreground">
                   {Math.round(progressPercent)}%
@@ -263,23 +321,33 @@ export default function UserProfile({
                 {[
                   {
                     icon: <Calendar className="h-5 w-5" />,
+                    title: "Выполнено в цикле",
+                    value: `${cycle.doneInCycle} / ${CYCLE_LENGTH}`,
+                  },
+                  {
+                    icon: <Flame className="h-5 w-5" />,
+                    title: "Пропущено в цикле",
+                    value: cycle.missedInCycle,
+                  },
+                  {
+                    icon: <Moon className="h-5 w-5" />,
+                    title: "Выходных в цикле",
+                    value: cycle.restInCycle,
+                  },
+                  {
+                    icon: <Calendar className="h-5 w-5" />,
                     title: "Всего отмечено",
                     value: completedDays,
                   },
                   {
                     icon: <Flame className="h-5 w-5" />,
-                    title: "Пропущено дней",
-                    value: missedDays,
+                    title: "Текущая серия",
+                    value: `${currentStreak} дней`,
                   },
                   {
                     icon: <Trophy className="h-5 w-5" />,
                     title: "Рекордная серия",
                     value: `${longestStreak} дней`,
-                  },
-                  {
-                    icon: <Flame className="h-5 w-5" />,
-                    title: "Текущая серия",
-                    value: `${currentStreak} дней`,
                   },
                   {
                     icon: <Target className="h-5 w-5 text-brand" />,
@@ -288,7 +356,7 @@ export default function UserProfile({
                   },
                   {
                     icon: <Moon className="h-5 w-5" />,
-                    title: "Выходных",
+                    title: "Выходных всего",
                     value: discipline.restDays,
                   },
                 ].map((s) => (
@@ -308,46 +376,64 @@ export default function UserProfile({
               </div>
             </div>
 
-            {/* Activity history */}
+            {/* Activity history — только текущий цикл */}
             <div className="bg-[#111] border border-[#1e1e1e] rounded-lg p-5">
-              <h4 className="font-semibold text-foreground mb-1">
-                История активности
-              </h4>
+              <div className="flex justify-between items-start gap-3 mb-1">
+                <h4 className="font-semibold text-foreground">
+                  История активности
+                </h4>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  Цикл {cycle.cycleNumber} · {formatShort(cycle.cycleStart)} —{" "}
+                  {formatShort(cycle.cycleEnd)}
+                </span>
+              </div>
               <p className="text-xs text-muted-foreground mb-4">
-                Зелёные — выполненные дни. Жёлтые — выходные. Красные — пропущенные.
+                {CYCLE_LENGTH} дней текущего цикла. С началом нового цикла сетка
+                обнуляется.
               </p>
               <div className="flex gap-1.5 flex-wrap">
-                {[...Array(DAYS_TO_SHOW)].map((_, index) => {
-                  const cellDate = new Date(createdAt);
-                  cellDate.setDate(createdAt.getDate() + index);
-                  cellDate.setHours(0, 0, 0, 0);
-                  const dateStr = cellDate.toLocaleDateString("sv-SE");
-                  const isToday = dateStr === today;
-                  const isCompleted = completedDates.includes(dateStr);
-                  const isRest = restDates.includes(dateStr);
-                  let color = "#1e1e1e";
-                  if (cellDate > todayDate) color = "#1e1e1e";
-                  else if (isCompleted) color = "#22c55e";
-                  else if (isRest) color = "#eab308";
-                  else if (cellDate < todayDate) color = "#ef4444";
-                  else color = "#2a2a2a";
+                {slots.map((slot) => {
+                  const style = SLOT_STYLE[slot.state];
+                  const isToday = slot.date === cycle.today;
                   return (
-                    <Tooltip key={index}>
+                    <Tooltip key={slot.date}>
                       <TooltipTrigger>
                         <div
                           className="w-5 h-5 rounded-sm transition-all"
                           style={{
-                            backgroundColor: color,
+                            backgroundColor: style.color,
                             border: isToday ? "2px solid #faad14" : "none",
                           }}
                         />
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>{dateStr}</p>
+                        <p className="font-semibold">
+                          День {slot.dayNumber} · {formatShort(slot.date)}
+                        </p>
+                        <p className="text-muted-foreground">{style.label}</p>
                       </TooltipContent>
                     </Tooltip>
                   );
                 })}
+              </div>
+
+              {/* Legend */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-4 text-xs text-muted-foreground">
+                {(
+                  ["done", "rest", "missed", "today", "future"] as CycleSlotState[]
+                ).map((state) => (
+                  <span key={state} className="flex items-center gap-1.5">
+                    <span
+                      className="w-3 h-3 rounded-sm inline-block"
+                      style={{
+                        backgroundColor: SLOT_STYLE[state].color,
+                        border:
+                          state === "today" ? "1px solid #faad14" : "none",
+                      }}
+                    />
+                    {SLOT_STYLE[state].legend}
+                  </span>
+                ))}
               </div>
             </div>
 
