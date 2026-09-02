@@ -719,7 +719,6 @@ function normalizeYear(months: unknown): MonthGoal[] {
 interface AutoGrowTextareaProps {
   value: string
   onChange: (value: string) => void
-  placeholder?: string
   readOnly?: boolean
   className?: string
   "aria-label"?: string
@@ -735,7 +734,6 @@ interface AutoGrowTextareaProps {
 function AutoGrowTextarea({
   value,
   onChange,
-  placeholder,
   readOnly = false,
   className = "",
   "aria-label": ariaLabel,
@@ -760,7 +758,9 @@ function AutoGrowTextarea({
       value={value}
       readOnly={readOnly}
       onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
+      // placeholder намеренно нет: пустая карточка месяца должна выглядеть
+      // чистым бланком, а не сеткой из повторяющихся подсказок. Доступное
+      // имя поля даёт aria-label — на него подсказка не влияла.
       aria-label={ariaLabel}
       // resize-none + overflow-hidden: высотой управляет эффект выше,
       // ручной ресайз и прокрутка внутри поля были бы лишними.
@@ -820,11 +820,9 @@ function MonthGoalCard({ name, card, readOnly = false, onChange }: MonthGoalCard
         <AutoGrowTextarea
           value={card.goal}
           onChange={(text) => onChange({ ...card, goal: text })}
-          placeholder={readOnly ? "" : "Главная цель месяца..."}
           readOnly={readOnly}
           aria-label={`Главная цель на ${name}`}
           className={`text-sm font-semibold leading-snug px-2 py-1 -mx-2 rounded
-            placeholder:text-muted-foreground/25 placeholder:font-normal
             ${readOnly
               ? "text-foreground/70 cursor-default"
               : "text-foreground hover:bg-[#181818] focus:bg-[#1a1a1a]"
@@ -853,11 +851,9 @@ function MonthGoalCard({ name, card, readOnly = false, onChange }: MonthGoalCard
               <AutoGrowTextarea
                 value={text}
                 onChange={(next) => setSubgoal(i, next)}
-                placeholder={readOnly ? "" : "Подцель..."}
                 readOnly={readOnly}
                 aria-label={`Подцель ${i + 1} на ${name}`}
                 className={`text-[13px] leading-snug px-1.5 py-0.5 rounded
-                  placeholder:text-muted-foreground/20
                   ${readOnly
                     ? "text-foreground/60 cursor-default"
                     : "text-foreground/90 hover:bg-[#181818] focus:bg-[#1a1a1a]"
