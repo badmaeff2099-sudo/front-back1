@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 8oK7BK1h1LX08SB1UYot2D8XTT4z0lzwZpMxYG10zEmjCYk8uzIFLz9IEPcSJU0
+\restrict mAaeUzuL9K5qDrmSW9Ap04iQpwcQoRrFCw7v0nG5NbYgxr3oco4aDLtDqIQ8aRN
 
 -- Dumped from database version 17.10 (Homebrew)
 -- Dumped by pg_dump version 17.10 (Homebrew)
@@ -432,6 +432,82 @@ ALTER SEQUENCE public.users_id_seq OWNED BY public.users.id;
 
 
 --
+-- Name: year_goal_subgoals; Type: TABLE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE TABLE public.year_goal_subgoals (
+    id integer NOT NULL,
+    goal_id integer NOT NULL,
+    "position" integer DEFAULT 0 NOT NULL,
+    text text DEFAULT ''::text NOT NULL
+);
+
+
+ALTER TABLE public.year_goal_subgoals OWNER TO bairbadmaev;
+
+--
+-- Name: year_goal_subgoals_id_seq; Type: SEQUENCE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE SEQUENCE public.year_goal_subgoals_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.year_goal_subgoals_id_seq OWNER TO bairbadmaev;
+
+--
+-- Name: year_goal_subgoals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: bairbadmaev
+--
+
+ALTER SEQUENCE public.year_goal_subgoals_id_seq OWNED BY public.year_goal_subgoals.id;
+
+
+--
+-- Name: year_goals; Type: TABLE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE TABLE public.year_goals (
+    id integer NOT NULL,
+    user_id integer NOT NULL,
+    year smallint NOT NULL,
+    month smallint NOT NULL,
+    goal text DEFAULT ''::text NOT NULL,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    updated_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT year_goals_month_check CHECK (((month >= 1) AND (month <= 12)))
+);
+
+
+ALTER TABLE public.year_goals OWNER TO bairbadmaev;
+
+--
+-- Name: year_goals_id_seq; Type: SEQUENCE; Schema: public; Owner: bairbadmaev
+--
+
+CREATE SEQUENCE public.year_goals_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.year_goals_id_seq OWNER TO bairbadmaev;
+
+--
+-- Name: year_goals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: bairbadmaev
+--
+
+ALTER SEQUENCE public.year_goals_id_seq OWNED BY public.year_goals.id;
+
+
+--
 -- Name: challenges id; Type: DEFAULT; Schema: public; Owner: bairbadmaev
 --
 
@@ -499,6 +575,20 @@ ALTER TABLE ONLY public.reactions ALTER COLUMN id SET DEFAULT nextval('public.re
 --
 
 ALTER TABLE ONLY public.users ALTER COLUMN id SET DEFAULT nextval('public.users_id_seq'::regclass);
+
+
+--
+-- Name: year_goal_subgoals id; Type: DEFAULT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.year_goal_subgoals ALTER COLUMN id SET DEFAULT nextval('public.year_goal_subgoals_id_seq'::regclass);
+
+
+--
+-- Name: year_goals id; Type: DEFAULT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.year_goals ALTER COLUMN id SET DEFAULT nextval('public.year_goals_id_seq'::regclass);
 
 
 --
@@ -616,9 +706,8 @@ COPY public.chat_messages (id, user_id, channel, message, created_at) FROM stdin
 
 COPY public.discipline_scores (id, user_id, completed_days, missed_days, score, calculated_at, rest_days) FROM stdin;
 8	9	4	93	3	2026-08-15 23:16:10.138464	1
-1	6	22	84	19	2026-08-23 20:31:14.687235	2
-10	11	6	84	0	2026-08-11 15:55:35.540198	0
-6	7	11	83	0	2026-08-11 15:55:35.536425	0
+1	6	26	88	27	2026-09-02 19:49:28.833374	4
+10	11	6	106	0	2026-09-02 16:22:17.018012	0
 7	8	7	87	0	2026-08-11 15:55:35.537439	0
 9	10	2	87	0	2026-08-11 15:55:35.53932	1
 11	12	2	87	0	2026-08-11 15:55:35.540991	1
@@ -633,6 +722,7 @@ COPY public.discipline_scores (id, user_id, completed_days, missed_days, score, 
 20	24	1	53	0	2026-08-11 15:55:35.547759	2
 21	25	0	55	0	2026-08-11 15:55:35.548325	1
 22	26	1	54	0	2026-08-11 15:55:35.548704	1
+6	7	12	103	0	2026-09-02 18:22:45.785207	1
 \.
 
 
@@ -656,6 +746,9 @@ COPY public.friendships (id, from_user_id, to_user_id, status, created_at) FROM 
 14	22	11	pending	2026-06-16 11:48:11.315472
 15	9	6	accepted	2026-08-15 23:15:39.831494
 16	6	24	pending	2026-08-23 19:13:17.795974
+17	7	8	pending	2026-08-24 20:58:13.219379
+18	7	26	pending	2026-08-24 20:58:13.812417
+19	7	9	pending	2026-08-24 20:58:14.338969
 \.
 
 
@@ -664,16 +757,16 @@ COPY public.friendships (id, from_user_id, to_user_id, status, created_at) FROM 
 --
 
 COPY public.goals500 (id, user_id, "position", text, done, created_at) FROM stdin;
-43	6	0	Бег	f	2026-08-05 21:14:04.297925
-44	6	1		f	2026-08-05 21:14:04.297925
-45	6	2		f	2026-08-05 21:14:04.297925
-46	6	3		f	2026-08-05 21:14:04.297925
-47	6	4		f	2026-08-05 21:14:04.297925
-48	6	5		f	2026-08-05 21:14:04.297925
-49	6	6		f	2026-08-05 21:14:04.297925
-50	6	7		f	2026-08-05 21:14:04.297925
-51	6	8		f	2026-08-05 21:14:04.297925
-52	6	9		f	2026-08-05 21:14:04.297925
+53	6	0	Бег	t	2026-09-02 15:55:58.829976
+54	6	1		f	2026-09-02 15:55:58.829976
+55	6	2		f	2026-09-02 15:55:58.829976
+56	6	3		f	2026-09-02 15:55:58.829976
+57	6	4		f	2026-09-02 15:55:58.829976
+58	6	5		f	2026-09-02 15:55:58.829976
+59	6	6		f	2026-09-02 15:55:58.829976
+60	6	7		f	2026-09-02 15:55:58.829976
+61	6	8		f	2026-09-02 15:55:58.829976
+62	6	9		f	2026-09-02 15:55:58.829976
 \.
 
 
@@ -690,7 +783,8 @@ COPY public.habits (id, user_id, title, total_days, created_at) FROM stdin;
 --
 
 COPY public.planner (user_id, last_date) FROM stdin;
-6	2026-08-22
+7	2026-08-24
+6	2026-09-02
 \.
 
 
@@ -699,11 +793,16 @@ COPY public.planner (user_id, last_date) FROM stdin;
 --
 
 COPY public.planner_items (id, user_id, day_type, "position", text) FROM stdin;
-71	6	today	0	
-72	6	today	1	
-73	6	today	2	
-74	6	today	3	
-75	6	today	4	
+76	7	today	0	
+77	7	today	1	
+78	7	today	2	
+79	7	today	3	
+80	7	today	4	
+101	6	today	0	
+102	6	today	1	
+103	6	today	2	
+104	6	today	3	
+105	6	today	4	
 \.
 
 
@@ -796,6 +895,14 @@ COPY public.progress (id, habit_id, day_date, completed, user_id, status) FROM s
 88	\N	2026-08-21	f	6	done
 89	\N	2026-08-22	f	6	done
 90	\N	2026-08-23	f	6	done
+91	\N	2026-08-23	f	7	rest
+92	\N	2026-08-24	f	7	done
+93	\N	2026-08-24	f	6	done
+94	\N	2026-08-25	f	6	done
+95	\N	2026-08-27	f	6	done
+96	\N	2026-08-28	f	6	rest
+97	\N	2026-08-30	f	6	rest
+98	\N	2026-09-02	f	6	done
 \.
 
 
@@ -834,6 +941,22 @@ COPY public.users (id, username, email, password, created_at, location, goal, fu
 
 
 --
+-- Data for Name: year_goal_subgoals; Type: TABLE DATA; Schema: public; Owner: bairbadmaev
+--
+
+COPY public.year_goal_subgoals (id, goal_id, "position", text) FROM stdin;
+\.
+
+
+--
+-- Data for Name: year_goals; Type: TABLE DATA; Schema: public; Owner: bairbadmaev
+--
+
+COPY public.year_goals (id, user_id, year, month, goal, created_at, updated_at) FROM stdin;
+\.
+
+
+--
 -- Name: challenges_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
@@ -851,21 +974,21 @@ SELECT pg_catalog.setval('public.chat_messages_id_seq', 2, true);
 -- Name: discipline_scores_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.discipline_scores_id_seq', 653, true);
+SELECT pg_catalog.setval('public.discipline_scores_id_seq', 826, true);
 
 
 --
 -- Name: friendships_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.friendships_id_seq', 16, true);
+SELECT pg_catalog.setval('public.friendships_id_seq', 19, true);
 
 
 --
 -- Name: goals500_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.goals500_id_seq', 52, true);
+SELECT pg_catalog.setval('public.goals500_id_seq', 62, true);
 
 
 --
@@ -879,14 +1002,14 @@ SELECT pg_catalog.setval('public.habits_id_seq', 1, true);
 -- Name: planner_items_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.planner_items_id_seq', 75, true);
+SELECT pg_catalog.setval('public.planner_items_id_seq', 105, true);
 
 
 --
 -- Name: progress_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
 --
 
-SELECT pg_catalog.setval('public.progress_id_seq', 90, true);
+SELECT pg_catalog.setval('public.progress_id_seq', 98, true);
 
 
 --
@@ -901,6 +1024,20 @@ SELECT pg_catalog.setval('public.reactions_id_seq', 1, false);
 --
 
 SELECT pg_catalog.setval('public.users_id_seq', 26, true);
+
+
+--
+-- Name: year_goal_subgoals_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
+--
+
+SELECT pg_catalog.setval('public.year_goal_subgoals_id_seq', 40, true);
+
+
+--
+-- Name: year_goals_id_seq; Type: SEQUENCE SET; Schema: public; Owner: bairbadmaev
+--
+
+SELECT pg_catalog.setval('public.year_goals_id_seq', 29, true);
 
 
 --
@@ -1024,6 +1161,30 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: year_goal_subgoals year_goal_subgoals_pkey; Type: CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.year_goal_subgoals
+    ADD CONSTRAINT year_goal_subgoals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: year_goals year_goals_pkey; Type: CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.year_goals
+    ADD CONSTRAINT year_goals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: year_goals year_goals_user_year_month_key; Type: CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.year_goals
+    ADD CONSTRAINT year_goals_user_year_month_key UNIQUE (user_id, year, month);
+
+
+--
 -- Name: challenges_active_idx; Type: INDEX; Schema: public; Owner: bairbadmaev
 --
 
@@ -1091,6 +1252,20 @@ CREATE INDEX users_username_lower_prefix ON public.users USING btree (lower((use
 --
 
 CREATE INDEX users_username_trgm ON public.users USING gin (username public.gin_trgm_ops);
+
+
+--
+-- Name: year_goal_subgoals_goal_idx; Type: INDEX; Schema: public; Owner: bairbadmaev
+--
+
+CREATE INDEX year_goal_subgoals_goal_idx ON public.year_goal_subgoals USING btree (goal_id, "position");
+
+
+--
+-- Name: year_goals_user_year_idx; Type: INDEX; Schema: public; Owner: bairbadmaev
+--
+
+CREATE INDEX year_goals_user_year_idx ON public.year_goals USING btree (user_id, year);
 
 
 --
@@ -1174,8 +1349,24 @@ ALTER TABLE ONLY public.reactions
 
 
 --
+-- Name: year_goal_subgoals year_goal_subgoals_goal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.year_goal_subgoals
+    ADD CONSTRAINT year_goal_subgoals_goal_id_fkey FOREIGN KEY (goal_id) REFERENCES public.year_goals(id) ON DELETE CASCADE;
+
+
+--
+-- Name: year_goals year_goals_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: bairbadmaev
+--
+
+ALTER TABLE ONLY public.year_goals
+    ADD CONSTRAINT year_goals_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 8oK7BK1h1LX08SB1UYot2D8XTT4z0lzwZpMxYG10zEmjCYk8uzIFLz9IEPcSJU0
+\unrestrict mAaeUzuL9K5qDrmSW9Ap04iQpwcQoRrFCw7v0nG5NbYgxr3oco4aDLtDqIQ8aRN
 
