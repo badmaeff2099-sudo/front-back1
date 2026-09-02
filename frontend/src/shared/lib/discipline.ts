@@ -16,27 +16,7 @@
  *   дне, поэтому фактическая дельта дня может быть меньше −1 по модулю.
  */
 
-function toISO(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, "0")
-  const d = String(date.getDate()).padStart(2, "0")
-  return `${y}-${m}-${d}`
-}
-
-function addDays(iso: string, n: number): string {
-  const d = new Date(iso + "T00:00:00")
-  d.setDate(d.getDate() + n)
-  return toISO(d)
-}
-
-function todayISO(): string {
-  return toISO(new Date())
-}
-
-/** Нормализует значение даты к виду YYYY-MM-DD. */
-function normalize(d: string): string {
-  return d.slice(0, 10)
-}
+import { addDays, normalizeDate as normalize, todayISO } from "./date"
 
 export const POINTS_DONE = 3
 export const POINTS_MISSED = -1

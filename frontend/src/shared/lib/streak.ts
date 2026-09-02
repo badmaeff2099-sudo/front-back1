@@ -9,22 +9,7 @@
  * - Серия жива только если сегодня или вчера есть хоть какая-то отметка.
  */
 
-function toISO(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, "0")
-  const d = String(date.getDate()).padStart(2, "0")
-  return `${y}-${m}-${d}`
-}
-
-function addDays(iso: string, n: number): string {
-  const d = new Date(iso + "T00:00:00")
-  d.setDate(d.getDate() + n)
-  return toISO(d)
-}
-
-function todayISO(): string {
-  return toISO(new Date())
-}
+import { addDays, todayISO } from "./date"
 
 /**
  * Текущий стрик.

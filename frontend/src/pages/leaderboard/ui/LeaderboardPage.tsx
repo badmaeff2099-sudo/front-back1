@@ -15,6 +15,7 @@ import { UserAvatar } from "@/entities/user/ui/UserAvatar"
 import { calcStreak } from "@/shared/lib/streak"
 import { calcDisciplineScore } from "@/shared/lib/discipline"
 import { calcCycle, CYCLE_LENGTH } from "@/shared/lib/cycle"
+import { useToday } from "@/shared/lib/useToday"
 import type { User as UserType } from "@/entities/user/model/types"
 import "./LeaderboardPage.css"
 
@@ -41,6 +42,8 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
   const [location, setLocation] = useState<string>(ALL_LOCATIONS)
   const [sortKey, setSortKey] = useState<SortKey>("total_days")
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc")
+  // Реактивное «сегодня» — иначе таблица переживёт полночь со старым циклом
+  const today = useToday()
 
   useEffect(() => { loadLeaderboard(location) }, [location])
 
@@ -170,7 +173,7 @@ function Leaderboard({ currentUser, onBack }: LeaderboardProps) {
                     const rank = getRank(user.total_days)
                     const streak = calcStreak(user.completed_dates, user.rest_dates)
                     const score = scoreOf(user)
-                    const cycle = calcCycle(user.created_at, user.completed_dates, user.rest_dates)
+                    const cycle = calcCycle(user.created_at, user.completed_dates, user.rest_dates, today)
                     // Сравниваем по id — username может совпасть у разных аккаунтов.
                     const isMe = currentUser?.id === user.id
                     return (

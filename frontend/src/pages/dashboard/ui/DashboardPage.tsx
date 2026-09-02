@@ -33,103 +33,13 @@ import { FriendsPanel } from "@/features/friends/ui/FriendsPanel";
 import { ChallengeCard } from "@/features/daily-challenge/ui/ChallengeCard";
 import { calcStreak } from "@/shared/lib/streak";
 import { calcDiscipline } from "@/shared/lib/discipline";
+import { calcCycle, buildCycleSlots, CYCLE_LENGTH } from "@/shared/lib/cycle";
+import { useToday } from "@/shared/lib/useToday";
 import type { User as UserType } from "@/entities/user/model/types";
 
 const PARTICIPANTS_PER_PAGE = 20;
-const CYCLE = 30; // квадратиков в столбце
 const CELL = 18; // сторона квадратика, px
 const CELL_RADIUS = 4;
-
-/* ─── Helpers ─────────────────────────────────────────────────── */
-
-function todayISO(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
-}
-
-
-/**
- * Строим 30 слотов текущего цикла, отсчитывая от даты регистрации.
- *
- * Логика:
- * - День 1 = дата регистрации (registeredAt), день 2 = +1 день и т.д.
- * - Цикл 1 = дни 1..30, цикл 2 = дни 31..60 и т.д.
- * - Определяем текущий цикл по тому, в каком диапазоне находится сегодня.
- * - Отображаем 30 слотов текущего цикла: слот 0 = самый нижний (первый день цикла).
- * - Слоты заполняются снизу вверх: пришёл день — закрасили снизу.
- * - Состояния: done (зелёный), missed (красный), today (жёлтый/зелёный), future (серый).
- */
-interface SlotInfo {
-  /** порядковый номер слота снизу: 0 = самый нижний (первый день цикла) */
-  slotIdx: number;
-  date: string;
-  state: "done" | "missed" | "today" | "future" | "rest";
-}
-
-/** Прибавить N дней к строке "YYYY-MM-DD" без Date-объектов (нет проблем с таймзоной) */
-function addDays(dateStr: string, n: number): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const dt = new Date(y, m - 1, d + n); // локальное время, без UTC-сдвига
-  const yy = dt.getFullYear();
-  const mm = String(dt.getMonth() + 1).padStart(2, "0");
-  const dd = String(dt.getDate()).padStart(2, "0");
-  return `${yy}-${mm}-${dd}`;
-}
-
-/** Разность дат в днях (b - a), строки "YYYY-MM-DD" */
-function diffDays(a: string, b: string): number {
-  const [ay, am, ad] = a.split("-").map(Number);
-  const [by, bm, bd] = b.split("-").map(Number);
-  const da = new Date(ay, am - 1, ad);
-  const db = new Date(by, bm - 1, bd);
-  return Math.round((db.getTime() - da.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function buildSlots(completedDates: string[] | undefined, today: string, registeredAt?: string, restDates?: string[]): SlotInfo[] {
-  completedDates = completedDates ?? [];
-  const restSet = new Set(restDates ?? []);
-
-  // Если нет даты регистрации — используем сегодня как точку отсчёта
-  const startStr = registeredAt ? registeredAt.slice(0, 10) : today;
-
-  const daysSinceStart = diffDays(startStr, today);
-
-  // Номер текущего цикла (0-based)
-  const cycleIndex = daysSinceStart < 0 ? 0 : Math.floor(daysSinceStart / CYCLE);
-
-  // Первый день текущего цикла (строка)
-  const cycleStartStr = addDays(startStr, cycleIndex * CYCLE);
-
-  const doneSet = new Set(completedDates);
-
-  const slots: SlotInfo[] = [];
-  for (let i = 0; i < CYCLE; i++) {
-    const dateStr = addDays(cycleStartStr, i);
-
-    let state: SlotInfo["state"];
-    if (dateStr === today) {
-      if (doneSet.has(dateStr)) state = "done";
-      else if (restSet.has(dateStr)) state = "rest";
-      else state = "today";
-    } else if (dateStr > today) {
-      state = "future";
-    } else if (doneSet.has(dateStr)) {
-      state = "done";
-    } else if (restSet.has(dateStr)) {
-      state = "rest";
-    } else {
-      state = "missed";
-    }
-
-    slots.push({ slotIdx: i, date: dateStr, state });
-  }
-
-  // slots[0] = первый день цикла (нижний квадратик), slots[29] = последний (верхний)
-  return slots;
-}
 
 /* ─── Vertical column for one user ───────────────────────────── */
 
@@ -147,19 +57,12 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
   const streak = calcStreak(dates, restDates);
   const total = dates.length;
   const rank = getRank(total);
-  const slots = buildSlots(dates, today, user.created_at, restDates);
   const todayMarked = dates.includes(today) || restDates.includes(today);
 
-  // Номер текущего цикла (1-based)
-  const cycleNumber = (() => {
-    const startStr = user.created_at ? user.created_at.slice(0, 10) : today;
-    const startDate = new Date(startStr);
-    const todayDate = new Date(today);
-    const daysSinceStart = Math.floor(
-      (todayDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    return daysSinceStart < 0 ? 1 : Math.floor(daysSinceStart / CYCLE) + 1;
-  })();
+  // Цикл — из общего модуля (тот же расчёт, что в профиле и рейтинге)
+  const cycle = calcCycle(user.created_at, dates, restDates, today);
+  const slots = buildCycleSlots(cycle, dates, restDates);
+
   const [marking, setMarking] = useState(false);
   const [showMarkModal, setShowMarkModal] = useState(false);
 
@@ -356,7 +259,10 @@ function UserColumn({ user, isMe, today, onMarkDay, onSelectUser }: UserColumnPr
           <span className="text-[10px] text-muted-foreground/50 tabular-nums">{total}</span>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Всего дней: {total} · Цикл {cycleNumber}</p>
+          <p>
+            Всего дней: {total} · Цикл {cycle.cycleNumber}, день{" "}
+            {cycle.dayInCycle}/{CYCLE_LENGTH}
+          </p>
         </TooltipContent>
       </Tooltip>
 
@@ -491,7 +397,9 @@ export default function DashboardPage({
   const [sortBy, setSortBy] = useState<"streak" | "total" | "default">("default");
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const today = todayISO();
+  // Реактивное «сегодня»: открытая на ночь вкладка сама перейдёт на новые
+  // сутки и, если у кого-то закончился цикл, перерисует его столбец.
+  const today = useToday();
 
   const loadParticipants = async (location: string) => {
     setLoading(true);
@@ -829,7 +737,7 @@ export default function DashboardPage({
                         <div key={i} className="flex flex-col items-center gap-[3px]">
                           <div className="w-9 h-9 rounded-full bg-[#2a2a2a] mb-1" />
                           <div className="w-8 h-3 rounded bg-[#222] mb-1" />
-                          {[...Array(CYCLE)].map((_, j) => (
+                          {[...Array(CYCLE_LENGTH)].map((_, j) => (
                             <div
                               key={j}
                               className="rounded-[4px] bg-[#1e1e1e]"

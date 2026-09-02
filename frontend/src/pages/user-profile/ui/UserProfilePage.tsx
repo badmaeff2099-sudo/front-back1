@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Trophy, MapPin, Calendar, Flame, Target, Moon } from "lucide-react";
+import {
+  ArrowLeft,
+  Trophy,
+  MapPin,
+  Calendar,
+  Flame,
+  Target,
+  Moon,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
 import { Progress } from "@/shared/ui/progress";
@@ -17,6 +27,7 @@ import {
   type CycleSlotState,
 } from "@/shared/lib/cycle";
 import { useToday } from "@/shared/lib/useToday";
+import { normalizeDate } from "@/shared/lib/date";
 import { getProgress } from "@/shared/api/client";
 import type { User as UserType } from "@/entities/user/model/types";
 
@@ -48,7 +59,7 @@ function formatShort(iso: string): string {
 /** Уникальные даты в формате "YYYY-MM-DD", по возрастанию */
 function normalizeDates(dates?: string[]): string[] {
   return Array.from(
-    new Set((dates || []).filter(Boolean).map((d) => d.slice(0, 10))),
+    new Set((dates || []).filter(Boolean).map(normalizeDate)),
   ).sort();
 }
 
@@ -113,11 +124,50 @@ export default function UserProfile({
     () => calcCycle(user.created_at, completedDates, restDates, today),
     [user.created_at, completedDates, restDates, today],
   );
-  const slots = useMemo(
-    () => buildCycleSlots(user.created_at, completedDates, restDates, today),
-    [user.created_at, completedDates, restDates, today],
-  );
   const progressPercent = (cycle.dayInCycle / CYCLE_LENGTH) * 100;
+
+  // Какой цикл показан в истории активности. null = «следовать за текущим»,
+  // чтобы с началом нового цикла сетка сама переехала вперёд. Если цикл выбран
+  // вручную, номер остаётся — переключение полночью не сбросит просмотр.
+  const [viewCycle, setViewCycle] = useState<number | null>(null);
+
+  // Сброс только при смене пользователя. Намеренно НЕ зависит от today:
+  // иначе выбранный вручную прошлый цикл терялся бы в полночь.
+  useEffect(() => {
+    setViewCycle(null);
+  }, [user.id]);
+
+  const viewedCycle = useMemo(
+    () =>
+      calcCycle(
+        user.created_at,
+        completedDates,
+        restDates,
+        today,
+        viewCycle ?? undefined,
+      ),
+    [user.created_at, completedDates, restDates, today, viewCycle],
+  );
+  const slots = useMemo(
+    () => buildCycleSlots(viewedCycle, completedDates, restDates),
+    [viewedCycle, completedDates, restDates],
+  );
+
+  // Номер зажимается внутри calcCycle, поэтому границы берём из результата,
+  // а не из состояния — «цикл 0» и «цикл из будущего» недостижимы.
+  const canGoBack = viewedCycle.cycleNumber > 1;
+  const canGoForward = !viewedCycle.isCurrent;
+  const shiftCycle = (delta: number) =>
+    setViewCycle(viewedCycle.cycleNumber + delta);
+
+  // Легенда — только те состояния, что реально есть в сетке: у завершённого
+  // цикла нет ни «сегодня», ни «впереди».
+  const legendStates = useMemo(() => {
+    const present = new Set(slots.map((s) => s.state));
+    return (
+      ["done", "rest", "missed", "today", "future"] as CycleSlotState[]
+    ).filter((s) => present.has(s));
+  }, [slots]);
 
   const currentStreak = calcStreak(completedDates, restDates);
   const longestStreak = calcLongestStreak(completedDates, restDates);
@@ -376,25 +426,59 @@ export default function UserProfile({
               </div>
             </div>
 
-            {/* Activity history — только текущий цикл */}
+            {/* Activity history — один цикл, переключаемый стрелками */}
             <div className="bg-[#111] border border-[#1e1e1e] rounded-lg p-5">
-              <div className="flex justify-between items-start gap-3 mb-1">
+              <div className="flex justify-between items-center gap-3 mb-1">
                 <h4 className="font-semibold text-foreground">
                   История активности
                 </h4>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  Цикл {cycle.cycleNumber} · {formatShort(cycle.cycleStart)} —{" "}
-                  {formatShort(cycle.cycleEnd)}
-                </span>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => shiftCycle(-1)}
+                    disabled={!canGoBack}
+                    aria-label="Предыдущий цикл"
+                    className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-[#1e1e1e] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs text-muted-foreground whitespace-nowrap tabular-nums">
+                    Цикл {viewedCycle.cycleNumber} · {formatShort(viewedCycle.cycleStart)}{" "}
+                    — {formatShort(viewedCycle.cycleEnd)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => shiftCycle(1)}
+                    disabled={!canGoForward}
+                    aria-label="Следующий цикл"
+                    className="w-6 h-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-[#1e1e1e] disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mb-4">
-                {CYCLE_LENGTH} дней текущего цикла. С началом нового цикла сетка
-                обнуляется.
-              </p>
+              <div className="flex items-center gap-2 mb-4">
+                <p className="text-xs text-muted-foreground">
+                  {viewedCycle.isCurrent
+                    ? `${CYCLE_LENGTH} дней текущего цикла. С началом нового цикла сетка обнуляется.`
+                    : `Завершённый цикл — все ${CYCLE_LENGTH} дней уже прожиты.`}
+                </p>
+                {/* Возврат к текущему циклу: null, а не номер — чтобы сетка
+                    снова следовала за сменой цикла автоматически. */}
+                {!viewedCycle.isCurrent && (
+                  <button
+                    type="button"
+                    onClick={() => setViewCycle(null)}
+                    className="text-xs text-brand hover:underline shrink-0"
+                  >
+                    К текущему
+                  </button>
+                )}
+              </div>
               <div className="flex gap-1.5 flex-wrap">
                 {slots.map((slot) => {
                   const style = SLOT_STYLE[slot.state];
-                  const isToday = slot.date === cycle.today;
+                  const isToday = slot.date === viewedCycle.today;
                   return (
                     <Tooltip key={slot.date}>
                       <TooltipTrigger>
@@ -417,11 +501,15 @@ export default function UserProfile({
                 })}
               </div>
 
+              {/* Итог именно того цикла, который открыт сейчас */}
+              <p className="text-xs text-muted-foreground mt-4">
+                Выполнено {viewedCycle.doneInCycle} · выходных{" "}
+                {viewedCycle.restInCycle} · пропущено {viewedCycle.missedInCycle}
+              </p>
+
               {/* Legend */}
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-4 text-xs text-muted-foreground">
-                {(
-                  ["done", "rest", "missed", "today", "future"] as CycleSlotState[]
-                ).map((state) => (
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3 text-xs text-muted-foreground">
+                {legendStates.map((state) => (
                   <span key={state} className="flex items-center gap-1.5">
                     <span
                       className="w-3 h-3 rounded-sm inline-block"
