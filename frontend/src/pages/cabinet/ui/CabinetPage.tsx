@@ -489,6 +489,17 @@ function Goals500Section({ currentUser }: { currentUser: UserType }) {
     persist([...goals, newGoal])
   }
 
+  /* Удалить строку */
+  const removeGoal = (uid: number) => {
+    // Последнюю строку не удаляем: пустая таблица без единой строки не
+    // оставила бы точки входа, кроме кнопки "Добавить цель".
+    if (goals.length <= 1) return
+    // Меню закрываем: оно держит индекс строки, а после удаления индексы
+    // сдвигаются, и "переместить вверх" применилось бы к чужой строке.
+    setMenu(null)
+    persist(goals.filter((g) => g.uid !== uid))
+  }
+
   const doneCount = goals.filter((g) => g.done).length
 
   if (loading) {
@@ -506,7 +517,7 @@ function Goals500Section({ currentUser }: { currentUser: UserType }) {
         <div>
           <h2 className="text-sm font-semibold text-foreground">Мои 500 целей</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Правая кнопка мыши по строке — переместить вверх или вниз.
+            Правая кнопка мыши по строке — переместить или удалить.
             Выполнено: <span className="text-foreground font-medium">{doneCount}</span> / {goals.length}
           </p>
         </div>
@@ -532,6 +543,9 @@ function Goals500Section({ currentUser }: { currentUser: UserType }) {
                 <th className="w-24 px-3 py-2.5 text-[10px] text-muted-foreground uppercase tracking-wider text-center font-medium select-none">
                   Выполнено
                 </th>
+                {/* Колонка удаления без заголовка: подпись к иконке-корзине
+                    не нужна, а пустой th держит ширину и выравнивание. */}
+                <th className="w-10" />
               </tr>
             </thead>
             <tbody className="divide-y divide-[#161616]">
@@ -593,6 +607,26 @@ function Goals500Section({ currentUser }: { currentUser: UserType }) {
                       </svg>
                     </button>
                   </td>
+
+                  {/* Удалить строку */}
+                  <td className="px-2 py-2 text-center w-10">
+                    <button
+                      onClick={() => removeGoal(goal.uid)}
+                      onContextMenu={(e) => e.stopPropagation()}
+                      disabled={goals.length <= 1}
+                      title="Удалить цель"
+                      aria-label={`Удалить цель ${idx + 1}`}
+                      // Появляется по наведению на строку — как в таблице
+                      // плана выше. disabled:pointer-events-none, иначе на
+                      // единственной строке кнопка ловила бы курсор впустую.
+                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity
+                        w-6 h-6 mx-auto flex items-center justify-center rounded
+                        text-muted-foreground/40 hover:text-red-500 hover:bg-red-500/10
+                        disabled:opacity-0 disabled:pointer-events-none"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -648,6 +682,24 @@ function Goals500Section({ currentUser }: { currentUser: UserType }) {
           >
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
             Переместить вниз
+          </button>
+          {/* То же действие, что и корзина в строке: меню уже открыто по ПКМ,
+              и искать иконку глазами не нужно. */}
+          <button
+            disabled={goals.length <= 1 || !goals[menu.index]}
+            // Проверка на существование: индекс в меню — снимок на момент
+            // ПКМ, а список к этому времени мог стать короче (переключение
+            // пользователя, перезагрузка), и goals[i] был бы undefined.
+            onClick={() => {
+              const target = goals[menu.index]
+              if (target) removeGoal(target.uid)
+            }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-400/90
+              hover:bg-red-500/10 hover:text-red-400 transition-colors
+              disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          >
+            <Trash2 className="h-4 w-4" />
+            Удалить строку
           </button>
         </div>
       )}
